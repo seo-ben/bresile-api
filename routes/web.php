@@ -9,13 +9,7 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-$opsExcludedMiddleware = [
-    \Illuminate\Session\Middleware\StartSession::class,
-    \Illuminate\View\Middleware\ShareErrorsFromSession::class,
-    \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
-    \Illuminate\Cookie\Middleware\EncryptCookies::class,
-    \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
-];
+$opsExcludedMiddleware = ['web'];
 
 Route::get('/ops', function () {
     config(['session.driver' => 'array', 'cache.default' => 'array']);
