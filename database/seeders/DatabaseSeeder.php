@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             AcademicReferenceDataSeeder::class,
             PartnerUniversitySeeder::class,
             EmailTemplatesSeeder::class,
+            RegistrationFormAndSettingsSeeder::class,
         ]);
     }
 }

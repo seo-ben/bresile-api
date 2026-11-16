@@ -223,6 +223,14 @@
             </form>
 
             <form method="POST" action="/ops">
+                <input type="hidden" name="preset" value="seed_forms">
+                <button type="submit" class="cmd-btn primary">
+                    <span class="label">📝 Seeder Formulaire d'Inscription</span>
+                    <span class="code">RegistrationFormAndSettingsSeeder</span>
+                </button>
+            </form>
+
+            <form method="POST" action="/ops">
                 <input type="hidden" name="preset" value="seed_academic">
                 <button type="submit" class="cmd-btn">
                     <span class="label">🎓 Seeder Niveaux, Villes & Universités</span>

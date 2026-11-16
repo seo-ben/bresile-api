@@ -44,6 +44,10 @@ Route::post('/ops', function (Request $request) {
             $executedCommand = 'db:seed --class=AdminUserSeeder --force';
             Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\AdminUserSeeder', '--force' => true]);
             $output = Artisan::output() ?: "AdminUserSeeder exécuté avec succès (admin@ecole-bresil.com).";
+        } elseif ($preset === 'seed_forms') {
+            $executedCommand = 'db:seed --class=RegistrationFormAndSettingsSeeder --force';
+            Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\RegistrationFormAndSettingsSeeder', '--force' => true]);
+            $output = Artisan::output() ?: "RegistrationFormAndSettingsSeeder exécuté avec succès (Formulaire d'inscription + 10 champs + options + paramètres + comptes bancaires).";
         } elseif ($preset === 'seed_academic') {
             $executedCommand = 'db:seed AcademicReferenceDataSeeder + PartnerUniversitySeeder';
             Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\AcademicReferenceDataSeeder', '--force' => true]);
