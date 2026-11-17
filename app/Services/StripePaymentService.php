@@ -37,7 +37,9 @@ class StripePaymentService
         $isZeroDecimal = in_array($stripeCurrency, ['xof', 'bif', 'clp', 'djf', 'gnf', 'jpy', 'kmf', 'krw', 'mga', 'pyg', 'rwf', 'ugx', 'vnd', 'vuv', 'xaf', 'xpf']);
         $unitAmount = $isZeroDecimal ? (int) round($amount) : (int) round($amount * 100);
 
-        $frontendUrl = env('FRONTEND_URL', 'http://127.0.0.1:5173');
+        $origin = request()?->headers->get('origin');
+        $defaultFrontend = app()->environment('production') ? 'https://bresile.wasmer.app' : 'http://127.0.0.1:5173';
+        $frontendUrl = rtrim($origin ?: env('FRONTEND_URL', $defaultFrontend), '/');
         $successUrl = "{$frontendUrl}/portail?payment=success&session_id={CHECKOUT_SESSION_ID}";
         $cancelUrl = "{$frontendUrl}/portail?payment=cancelled";
 
@@ -45,7 +47,6 @@ class StripePaymentService
             Stripe::setApiKey($stripeSecret);
 
             $session = StripeSession::create([
-                'payment_method_types' => ['card'],
                 'customer_email'       => $user->email,
                 'line_items'           => [
                     [

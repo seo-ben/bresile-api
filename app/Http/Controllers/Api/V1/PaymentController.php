@@ -84,17 +84,32 @@ class PaymentController extends Controller
     public function createStripeCheckout(Request $request): JsonResponse
     {
         $request->validate([
-            'enrollment_id'  => 'required|exists:enrollments,id',
+            'enrollment_id'  => 'nullable|integer',
             'amount'         => 'required|numeric|min:1',
             'currency'       => 'nullable|string|max:3',
             'installment_id' => 'nullable|integer',
             'description'    => 'nullable|string|max:255',
         ]);
 
-        $enrollment = \App\Models\Enrollment::findOrFail($request->input('enrollment_id'));
+        $user = $request->user();
+        $enrollment = null;
+
+        if ($request->filled('enrollment_id')) {
+            $enrollment = \App\Models\Enrollment::where('id', $request->input('enrollment_id'))
+                ->where('student_id', $user->id)
+                ->first();
+        }
+
+        if (! $enrollment) {
+            $enrollment = \App\Models\Enrollment::where('student_id', $user->id)->latest('id')->first();
+        }
+
+        if (! $enrollment) {
+            $enrollment = \App\Models\Enrollment::latest('id')->firstOrFail();
+        }
 
         $sessionData = $this->stripeService->createCheckoutSession(
-            user: $request->user(),
+            user: $user,
             enrollment: $enrollment,
             amount: (float) $request->input('amount'),
             currency: $request->input('currency', 'EUR'),
