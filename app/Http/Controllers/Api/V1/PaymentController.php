@@ -35,9 +35,19 @@ class PaymentController extends Controller
         );
     }
 
-    public function getBankAccounts(): JsonResponse
+    public function getBankAccounts(Request $request): JsonResponse
     {
+        $translator = app(\App\Services\AutoTranslationService::class);
+        $lang = $translator->resolveLocale($request);
+
         $accounts = BankAccount::where('is_active', true)->get();
+
+        if ($lang !== 'fr') {
+            $accounts->each(function ($acc) use ($translator, $lang) {
+                $acc->label        = $translator->translate($acc->label, $lang);
+                $acc->instructions = $translator->translate($acc->instructions, $lang);
+            });
+        }
 
         return $this->successResponse(
             data: $accounts,
