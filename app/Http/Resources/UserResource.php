@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\LevelOffer;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -26,19 +27,28 @@ class UserResource extends JsonResource
             ],
             'enrollments'      => $this->whenLoaded('enrollments', function () use ($translator, $lang) {
                 return $this->enrollments->map(function ($enrollment) use ($translator, $lang) {
-                    return [
-                        'id'                => $enrollment->id,
-                        'level_id'          => $enrollment->level_id,
-                        'level_name'        => $translator->translate($enrollment->level?->name ?? 'Niveau A1', $lang),
-                        'study_mode'        => $enrollment->offer?->study_mode ?? 'in_person_brazil',
-                        'target_university' => $enrollment->target_university ?? 'Non spécifiée',
-                        'city_name'         => $enrollment->city?->name ?? 'Brasília',
-                        'city_state'        => $enrollment->city?->state_code ?? 'DF',
-                        'status'            => $enrollment->status ?? 'pending_payment',
-                        'status_reason'     => $translator->translate($enrollment->status_reason ?? 'Inscription enregistrée', $lang),
-                        'rhythm'            => $enrollment->rhythm ?? 'day',
-                        'enrolled_at'       => $enrollment->enrolled_at ? ($enrollment->enrolled_at instanceof \DateTimeInterface ? $enrollment->enrolled_at->format('d/m/Y') : date('d/m/Y', strtotime($enrollment->enrolled_at))) : null,
-                        'installments'      => $enrollment->installments->map(function ($inst) {
+                    $offer = $enrollment->offer
+                        ?? LevelOffer::with('paymentPlans')->where('level_id', $enrollment->level_id)->first()
+                        ?? LevelOffer::with('paymentPlans')->first();
+
+                    $basePrice = (float) ($offer?->base_price ?? 500.00);
+                    $currency = $offer?->currency ?? 'EUR';
+
+                    // Vérifier si l'admin a défini des plans spécifiques sur l'offre
+                    $cashPlan = $offer?->paymentPlans?->firstWhere('installments_count', 1);
+                    $splitPlan = $offer?->paymentPlans?->firstWhere('installments_count', '>', 1);
+
+                    $totalPrice = $cashPlan && (float) $cashPlan->total_amount > 0
+                        ? (float) $cashPlan->total_amount
+                        : $basePrice;
+
+                    $splitTotal = $splitPlan && (float) $splitPlan->total_amount > 0
+                        ? (float) $splitPlan->total_amount
+                        : $basePrice;
+
+                    // Si l'admin a créé des échéances personnalisées sur le dossier étudiant, on les utilise
+                    if ($enrollment->installments && $enrollment->installments->count() > 0) {
+                        $installments = $enrollment->installments->map(function ($inst) {
                             return [
                                 'id'             => $inst->id,
                                 'installment_no' => $inst->installment_no,
@@ -48,7 +58,63 @@ class UserResource extends JsonResource
                                 'status'         => $inst->status,
                                 'paid_at'        => $inst->paid_at ? date('d/m/Y', strtotime($inst->paid_at)) : null,
                             ];
-                        }),
+                        })->values();
+                    } else {
+                        // Calcul automatique en 3 tranches à partir du tarif défini par l'admin
+                        $inst2 = floor(($splitTotal / 3) / 5) * 5;
+                        if ($inst2 <= 0) {
+                            $inst2 = round($splitTotal / 3, 2);
+                        }
+                        $inst3 = $inst2;
+                        $inst1 = round($splitTotal - $inst2 - $inst3, 2);
+
+                        $installments = collect([
+                            [
+                                'id'             => null,
+                                'installment_no' => 1,
+                                'due_date'       => null,
+                                'amount'         => (float) $inst1,
+                                'currency'       => $currency,
+                                'status'         => 'pending',
+                                'paid_at'        => null,
+                            ],
+                            [
+                                'id'             => null,
+                                'installment_no' => 2,
+                                'due_date'       => null,
+                                'amount'         => (float) $inst2,
+                                'currency'       => $currency,
+                                'status'         => 'pending',
+                                'paid_at'        => null,
+                            ],
+                            [
+                                'id'             => null,
+                                'installment_no' => 3,
+                                'due_date'       => null,
+                                'amount'         => (float) $inst3,
+                                'currency'       => $currency,
+                                'status'         => 'pending',
+                                'paid_at'        => null,
+                            ],
+                        ]);
+                    }
+
+                    return [
+                        'id'                => $enrollment->id,
+                        'level_id'          => $enrollment->level_id,
+                        'level_name'        => $translator->translate($enrollment->level?->name ?? 'Niveau A1', $lang),
+                        'study_mode'        => $offer?->study_mode ?? 'in_person_brazil',
+                        'total_price'       => $totalPrice,
+                        'split_total_price' => $splitTotal,
+                        'currency'          => $currency,
+                        'target_university' => $enrollment->target_university ?? 'Non spécifiée',
+                        'city_name'         => $enrollment->city?->name ?? 'Brasília',
+                        'city_state'        => $enrollment->city?->state_code ?? 'DF',
+                        'status'            => $enrollment->status ?? 'pending_payment',
+                        'status_reason'     => $translator->translate($enrollment->status_reason ?? 'Inscription enregistrée', $lang),
+                        'rhythm'            => $enrollment->rhythm ?? 'day',
+                        'enrolled_at'       => $enrollment->enrolled_at ? ($enrollment->enrolled_at instanceof \DateTimeInterface ? $enrollment->enrolled_at->format('d/m/Y') : date('d/m/Y', strtotime($enrollment->enrolled_at))) : null,
+                        'installments'      => $installments,
                     ];
                 });
             }),

@@ -169,7 +169,7 @@ class AuthService
             $token = $user->createToken('student-auth-token')->plainTextToken;
 
             return [
-                'user'    => $user->load(['profile', 'enrollments']),
+                'user'    => $user->load(['profile', 'enrollments.level', 'enrollments.city', 'enrollments.offer.paymentPlans', 'enrollments.installments', 'visaApplications']),
                 'token'   => $token,
             ];
         });
@@ -211,7 +211,7 @@ class AuthService
         $token = $user->createToken($tokenName)->plainTextToken;
 
         return [
-            'user'  => $user->load(['profile', 'enrollments']),
+            'user'  => $user->load(['profile', 'enrollments.level', 'enrollments.city', 'enrollments.offer.paymentPlans', 'enrollments.installments', 'visaApplications']),
             'token' => $token,
         ];
     }

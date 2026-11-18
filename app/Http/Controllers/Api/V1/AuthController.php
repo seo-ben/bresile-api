@@ -55,7 +55,7 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         return $this->successResponse(
-            data: new UserResource($request->user()->load(['profile', 'enrollments.level', 'enrollments.city', 'enrollments.offer', 'enrollments.installments', 'visaApplications'])),
+            data: new UserResource($request->user()->load(['profile', 'enrollments.level', 'enrollments.city', 'enrollments.offer.paymentPlans', 'enrollments.installments', 'visaApplications'])),
             message: 'Profil utilisateur récupéré.'
         );
     }
