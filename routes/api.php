@@ -33,6 +33,9 @@ Route::prefix('v1')->group(function () {
     // Coordonnées pour virement bancaire
     Route::get('/payments/bank-accounts', [PaymentController::class, 'getBankAccounts']);
 
+    // Capture des numéros WhatsApp depuis le bandeau du site pour l'administration
+    Route::post('/leads/whatsapp', [AcademicController::class, 'storeWhatsappLead']);
+
 
     // ==========================================
     // 2. ENDPOINTS PROTÉGÉS (auth:sanctum)

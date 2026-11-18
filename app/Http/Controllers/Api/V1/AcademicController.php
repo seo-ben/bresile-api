@@ -9,6 +9,7 @@ use App\Models\CmsContent;
 use App\Models\Level;
 use App\Models\PartnerUniversity;
 use App\Models\RefundPolicy;
+use App\Models\WhatsappLead;
 use App\Services\AutoTranslationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -137,6 +138,46 @@ class AcademicController extends Controller
         return $this->successResponse(
             data: $content,
             message: 'Contenu récupéré avec succès.'
+        );
+    }
+
+    public function storeWhatsappLead(Request $request): JsonResponse
+    {
+        $request->validate([
+            'dial_code'    => 'required|string|max:12',
+            'phone_number' => 'required|string|min:5|max:40',
+            'country_name' => 'nullable|string|max:80',
+            'locale'       => 'nullable|string|max:10',
+        ]);
+
+        WhatsappLead::ensureTableExists();
+
+        $dialCode = trim((string) $request->input('dial_code', '+221'));
+        $rawPhone = preg_replace('/[^0-9\s-]/', '', (string) $request->input('phone_number'));
+        $phone = trim($rawPhone);
+
+        if ($phone === '') {
+            return $this->errorResponse(
+                message: 'Veuillez saisir un numéro WhatsApp valide (chiffres uniquement).',
+                code: 422
+            );
+        }
+
+        $fullWhatsapp = trim("{$dialCode} {$phone}");
+
+        $lead = WhatsappLead::create([
+            'dial_code'     => $dialCode,
+            'country_name'  => $request->input('country_name'),
+            'phone_number'  => $phone,
+            'full_whatsapp' => $fullWhatsapp,
+            'locale'        => $this->translator->resolveLocale($request),
+            'status'        => 'new',
+        ]);
+
+        return $this->successResponse(
+            data: $lead,
+            message: 'Numéro WhatsApp transmis à l\'administration avec succès.',
+            code: 201
         );
     }
 }
