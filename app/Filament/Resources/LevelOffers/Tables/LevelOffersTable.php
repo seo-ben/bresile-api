@@ -24,20 +24,44 @@ class LevelOffersTable
                     ->label('Modalité d’Études')
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'in_person_brazil' => '🇧🇷 Présentiel au Brésil',
+                        'in_person_brazil'    => '🇧🇷 Présentiel Brésil (VITEM IV)',
+                        'visitor_visa_brazil' => '🇧🇷 Présentiel Brésil (Visa Visiteur)',
                         'remote_home_country' => '💻 En Ligne Direct',
                         default => $state,
                     })
                     ->color(fn (string $state): string => match ($state) {
-                        'in_person_brazil' => 'success',
+                        'in_person_brazil'    => 'success',
+                        'visitor_visa_brazil' => 'warning',
                         'remote_home_country' => 'info',
                         default => 'gray',
                     }),
+                TextColumn::make('service_fee')
+                    ->label('Frais de Service')
+                    ->state(fn ($record): string => \App\Services\CurrencyService::formatInActiveCurrency((float) ($record->service_fee ?? 0), $record->currency ?? 'EUR'))
+                    ->description(fn ($record): string => \App\Services\CurrencyService::formatSubEquivalents((float) ($record->service_fee ?? 0), $record->currency ?? 'EUR'))
+                    ->weight('bold')
+                    ->color('info')
+                    ->sortable(),
                 TextColumn::make('base_price')
-                    ->label('Tarif de Scolarité')
-                    ->money(fn ($record) => $record->currency ?? 'EUR')
+                    ->label('Frais de Scolarité')
+                    ->state(fn ($record): string => \App\Services\CurrencyService::formatInActiveCurrency((float) $record->base_price, $record->currency ?? 'EUR'))
+                    ->description(fn ($record): string => \App\Services\CurrencyService::formatSubEquivalents((float) $record->base_price, $record->currency ?? 'EUR'))
                     ->weight('bold')
                     ->sortable(),
+                TextColumn::make('installments_summary')
+                    ->label('3 Tranches (Admin)')
+                    ->state(function ($record): string {
+                        if ($record->installment_1_amount || $record->installment_2_amount || $record->installment_3_amount) {
+                            $curr = $record->currency ?? 'EUR';
+                            $t1 = \App\Services\CurrencyService::formatInActiveCurrency((float) $record->installment_1_amount, $curr);
+                            $t2 = \App\Services\CurrencyService::formatInActiveCurrency((float) $record->installment_2_amount, $curr);
+                            $t3 = \App\Services\CurrencyService::formatInActiveCurrency((float) $record->installment_3_amount, $curr);
+                            return "{$t1} / {$t2} / {$t3}";
+                        }
+                        return 'Non configurées';
+                    })
+                    ->color(fn ($record): string => ($record->installment_1_amount || $record->installment_2_amount || $record->installment_3_amount) ? 'primary' : 'gray')
+                    ->badge(),
                 TextColumn::make('currency')
                     ->label('Devise')
                     ->badge(),

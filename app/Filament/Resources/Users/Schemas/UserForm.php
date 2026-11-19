@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Users\Schemas;
 
 use App\Models\User;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -33,7 +34,11 @@ class UserForm
                                 ->required(),
                         ]),
 
-                        Grid::make(2)->schema([
+                        Grid::make(3)->schema([
+                            DatePicker::make('birth_date')
+                                ->label('Date de Naissance')
+                                ->displayFormat('d/m/Y'),
+
                             TextInput::make('phone')
                                 ->label('Téléphone / WhatsApp')
                                 ->tel()
@@ -60,8 +65,9 @@ class UserForm
                             Select::make('formation_study_mode')
                                 ->label('Modalité d’études')
                                 ->options([
-                                    'in_person_brazil' => '🇧🇷 Présentiel au Brésil (Visa VITEM IV)',
-                                    'online' => '💻 En Ligne Direct',
+                                    'in_person_brazil'    => '🇧🇷 Présentiel au Brésil (Visa VITEM IV)',
+                                    'visitor_visa_brazil' => '🇧🇷 Présentiel au Brésil (Visa Visiteur)',
+                                    'online'              => '💻 En Ligne Direct',
                                 ])
                                 ->default('in_person_brazil'),
 

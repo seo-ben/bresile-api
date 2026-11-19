@@ -36,7 +36,8 @@ class ClassGroupForm
                             Select::make('study_mode')
                                 ->label('Modalité d’Enseignement')
                                 ->options([
-                                    'in_person_brazil' => 'Présentiel Brésil (Visa VITEM IV)',
+                                    'in_person_brazil'    => 'Présentiel Brésil (Visa VITEM IV)',
+                                    'visitor_visa_brazil' => 'Présentiel Brésil (Visa Visiteur)',
                                     'remote_home_country' => 'En Ligne (Pays d’origine)',
                                 ])
                                 ->default('in_person_brazil')

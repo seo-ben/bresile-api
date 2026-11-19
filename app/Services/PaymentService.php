@@ -32,7 +32,7 @@ class PaymentService
             $payment = Payment::create([
                 'student_id'        => $dto->userId,
                 'enrollment_id'     => $enrollment->id,
-                'purpose'           => 'level_fee',
+                'purpose'           => in_array($dto->purpose, ['service_fee', 'level_fee', 'final_settlement'], true) ? $dto->purpose : 'level_fee',
                 'method'            => $method,
                 'amount'            => $dto->amount,
                 'currency'          => $dto->currency,

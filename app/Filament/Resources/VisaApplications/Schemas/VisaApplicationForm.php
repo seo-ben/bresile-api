@@ -11,6 +11,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\HtmlString;
 
 class VisaApplicationForm
 {
@@ -84,6 +85,41 @@ class VisaApplicationForm
                         DateTimePicker::make('submitted_at')
                             ->label('Date de dépôt au consulat')
                             ->placeholder('jj/mm/aaaa --:--'),
+                    ]),
+
+                Section::make('Historique des Documents Officiels Envoyés')
+                    ->description('Liste de tous les documents déjà transmis à cet étudiant.')
+                    ->visible(fn (?VisaApplication $record): bool => $record !== null)
+                    ->schema([
+                        Placeholder::make('documents_history_list')
+                            ->label('')
+                            ->content(function (?VisaApplication $record): HtmlString {
+                                if (! $record) {
+                                    return new HtmlString('');
+                                }
+                                $docs = $record->documents()->with('file')->orderByDesc('issued_at')->orderByDesc('id')->get();
+                                if ($docs->isEmpty()) {
+                                    return new HtmlString('<div style="padding:10px 12px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;font-size:13px;color:#64748b;">Aucun document officiel envoyé pour le moment.</div>');
+                                }
+
+                                $rows = '';
+                                foreach ($docs as $doc) {
+                                    $title = e($doc->title);
+                                    $date = $doc->issued_at ? $doc->issued_at->format('d/m/Y H:i') : '—';
+                                    $url = $doc->file?->storage_path ? asset('storage/' . ltrim($doc->file->storage_path, '/')) : null;
+                                    $linkHtml = $url
+                                        ? '<a href="' . e($url) . '" target="_blank" rel="noopener" style="color:#059669;font-weight:700;text-decoration:underline;white-space:nowrap;">Ouvrir / Télécharger</a>'
+                                        : '<span style="color:#94a3b8;">Fichier indisponible</span>';
+
+                                    $rows .= '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;border-radius:8px;background:#ffffff;border:1px solid #e2e8f0;">'
+                                        . '<div><div style="font-weight:700;color:#0f172a;font-size:13px;">' . $title . '</div>'
+                                        . '<div style="font-size:11px;color:#64748b;">Envoyé le ' . $date . '</div></div>'
+                                        . $linkHtml
+                                        . '</div>';
+                                }
+
+                                return new HtmlString('<div style="display:flex;flex-direction:column;gap:6px;">' . $rows . '</div>');
+                            }),
                     ]),
 
                 Section::make('Validation & Traçabilité Automatique')

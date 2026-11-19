@@ -89,6 +89,7 @@ class PaymentController extends Controller
             'currency'       => 'nullable|string|max:3',
             'installment_id' => 'nullable|integer',
             'description'    => 'nullable|string|max:255',
+            'purpose'        => 'nullable|string|in:service_fee,level_fee,final_settlement',
         ]);
 
         $user = $request->user();
@@ -114,17 +115,18 @@ class PaymentController extends Controller
             amount: (float) $request->input('amount'),
             currency: $request->input('currency', 'EUR'),
             installmentId: $request->input('installment_id') ? (int) $request->input('installment_id') : null,
-            description: $request->input('description', 'Scolarité Niveau A1')
+            description: $request->input('description', 'Scolarité Niveau A1'),
+            purpose: (string) $request->input('purpose', 'level_fee')
         );
 
         return $this->successResponse(
             data: $sessionData,
-            message: 'Session de paiement Stripe générée avec succès.'
+            message: 'Session de paiement par carte générée avec succès.'
         );
     }
 
     /**
-     * Valide le paiement Stripe au retour de l'étudiant.
+     * Valide le paiement par carte au retour de l'étudiant.
      */
     public function verifyStripeSession(Request $request): JsonResponse
     {
@@ -136,7 +138,7 @@ class PaymentController extends Controller
 
         return $this->successResponse(
             data: $result,
-            message: $result['message'] ?? 'Statut Stripe vérifié.'
+            message: $result['message'] ?? 'Statut du paiement vérifié.'
         );
     }
 }

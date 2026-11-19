@@ -13,6 +13,7 @@ readonly class RecordPaymentDTO
         public string $paymentMethod,
         public ?string $gatewayReference = null,
         public ?int $proofFileId = null,
-        public ?string $notes = null
+        public ?string $notes = null,
+        public string $purpose = 'level_fee'
     ) {}
 }

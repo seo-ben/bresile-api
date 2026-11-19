@@ -54,6 +54,20 @@ class StudentRequestsTable
                         default => 'gray',
                     }),
 
+                TextColumn::make('subject')
+                    ->label('Objet & Message')
+                    ->default('—')
+                    ->limit(40)
+                    ->description(fn (StudentRequest $record): string => $record->message ? \Illuminate\Support\Str::limit($record->message, 65) : '')
+                    ->searchable(),
+
+                TextColumn::make('attachment_path')
+                    ->label('Document Joint')
+                    ->formatStateUsing(fn (?string $state, StudentRequest $record): string => $state ? ($record->attachment_name ?: 'Voir pièce jointe') : '—')
+                    ->url(fn (StudentRequest $record): ?string => $record->attachment_path ? asset('storage/' . ltrim($record->attachment_path, '/')) : null, shouldOpenInNewTab: true)
+                    ->icon(fn (?string $state): ?string => $state ? 'heroicon-m-paper-clip' : null)
+                    ->color(fn (?string $state): string => $state ? 'primary' : 'gray'),
+
                 TextColumn::make('status')
                     ->label('Statut')
                     ->badge()

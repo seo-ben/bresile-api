@@ -13,6 +13,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class VisaApplicationResource extends Resource
 {
@@ -22,6 +23,17 @@ class VisaApplicationResource extends Resource
     protected static ?string $model = VisaApplication::class;
     protected static ?string $navigationLabel = 'Dossiers Visa VITEM IV';
     protected static ?string $pluralModelLabel = 'Dossiers Visa VITEM IV';
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->where(function (Builder $query) {
+            $query->whereDoesntHave('enrollment')
+                ->orWhereHas('enrollment', function (Builder $eq) {
+                    $eq->whereNull('visa_type')
+                        ->orWhere('visa_type', '!=', 'visitor_visa');
+                });
+        });
+    }
 
     public static function getRecordTitle(?\Illuminate\Database\Eloquent\Model $record): ?string
     {

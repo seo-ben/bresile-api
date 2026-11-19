@@ -6,12 +6,15 @@ use App\Models\BrazilCity;
 use App\Models\Enrollment;
 use App\Models\Level;
 use App\Models\StudentRequest;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\HtmlString;
 
 class StudentRequestForm
 {
@@ -62,6 +65,24 @@ class StudentRequestForm
                                 ->preload()
                                 ->placeholder('Sélectionner le dossier'),
                         ]),
+
+                        TextInput::make('subject')
+                            ->label('Objet de la Demande')
+                            ->placeholder('Ex: Demande de changement de ville vers São Paulo'),
+
+                        Textarea::make('message')
+                            ->label('Message détaillé de l’Étudiant')
+                            ->rows(4)
+                            ->columnSpanFull(),
+
+                        Placeholder::make('student_attachment_link')
+                            ->label('Pièce Jointe envoyée par l’Étudiant')
+                            ->visible(fn (?StudentRequest $record): bool => (bool) $record?->attachment_path)
+                            ->content(function (?StudentRequest $record): HtmlString {
+                                $url = asset('storage/' . ltrim((string) $record?->attachment_path, '/'));
+                                $name = e($record?->attachment_name ?: basename((string) $record?->attachment_path));
+                                return new HtmlString('<a href="' . e($url) . '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;font-weight:700;text-decoration:none;">📎 Télécharger / Voir : ' . $name . '</a>');
+                            }),
                     ]),
 
                 Section::make('Détails de Mobilité & Villes')
@@ -70,7 +91,8 @@ class StudentRequestForm
                             Select::make('requested_study_mode')
                                 ->label('Modalité demandée')
                                 ->options([
-                                    'in_person_brazil' => 'Présentiel Brésil (VITEM IV)',
+                                    'in_person_brazil'    => 'Présentiel Brésil (VITEM IV)',
+                                    'visitor_visa_brazil' => 'Présentiel Brésil (Visa Visiteur)',
                                     'remote_home_country' => 'En Ligne (Distance)',
                                 ])
                                 ->placeholder('Non applicable'),
@@ -102,9 +124,18 @@ class StudentRequestForm
                             ->required(),
 
                         Textarea::make('decision_note')
-                            ->label('Commentaire & Motif de la Décision')
+                            ->label('Réponse / Retour de l’Administration à l’Étudiant')
                             ->placeholder('Ex: Accordé suite à confirmation des places disponibles à Brasília.')
+                            ->rows(4)
                             ->columnSpanFull(),
+
+                        FileUpload::make('admin_attachment_path')
+                            ->label('Document de réponse à joindre pour l’Étudiant (Optionnel — PDF, JPG, PNG)')
+                            ->disk('public')
+                            ->directory('student_requests_replies')
+                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
+                            ->maxSize(15360)
+                            ->helperText('Ce fichier apparaîtra directement sous votre réponse dans l’espace « Mes Demandes » de l’étudiant.'),
                     ]),
 
                 Section::make('Validation & Traçabilité Automatique')

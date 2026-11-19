@@ -23,14 +23,20 @@ use Filament\Tables\Table;
 class WhatsappLeadResource extends Resource
 {
     protected static \UnitEnum|string|null $navigationGroup = 'Inscriptions & Visas';
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 6;
 
     protected static ?string $model = WhatsappLead::class;
+    protected static ?string $recordTitleAttribute = 'full_whatsapp';
 
     protected static ?string $navigationLabel = 'Contacts WhatsApp';
     protected static ?string $pluralModelLabel = 'Contacts WhatsApp';
     protected static ?string $modelLabel = 'Contact WhatsApp';
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-phone-arrow-down-left';
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['full_whatsapp', 'phone_number', 'country_name', 'admin_note'];
+    }
 
     public static function getNavigationBadge(): ?string
     {

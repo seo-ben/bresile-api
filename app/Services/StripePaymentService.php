@@ -26,7 +26,8 @@ class StripePaymentService
         float $amount,
         string $currency = 'EUR',
         ?int $installmentId = null,
-        string $description = 'Paiement scolarité Brasil·É'
+        string $description = 'Paiement scolarité Brasil·É',
+        string $purpose = 'level_fee'
     ): array {
         $stripeSecret = config('services.stripe.secret');
 
@@ -70,6 +71,7 @@ class StripePaymentService
                     'installment_id' => $installmentId ? (string) $installmentId : '',
                     'amount'         => (string) $amount,
                     'currency'       => $currency,
+                    'purpose'        => $purpose,
                 ],
             ]);
 
@@ -85,12 +87,12 @@ class StripePaymentService
             'mode'         => 'simulation',
             'checkout_url' => "{$frontendUrl}/portail?payment=simulation&amount={$amount}&currency={$currency}&installment_id={$installmentId}",
             'session_id'   => 'sim_' . bin2hex(random_bytes(8)),
-            'message'      => 'Prêt pour Stripe. Renseignez STRIPE_SECRET dans votre fichier .env pour activer la passerelle en direct.',
+            'message'      => 'Session de paiement prête.',
         ];
     }
 
     /**
-     * Confirms payment from a completed Stripe session.
+     * Confirms payment from a completed checkout session.
      */
     public function handleSessionSuccess(string $sessionId): array
     {
@@ -107,6 +109,18 @@ class StripePaymentService
                 $installmentId = !empty($meta->installment_id) ? (int) $meta->installment_id : null;
                 $amount = (float) ($meta->amount ?? 0);
                 $currency = $meta->currency ?? 'EUR';
+                $purpose = $meta->purpose ?? 'level_fee';
+                $gatewayRef = $session->payment_intent ?? $session->id;
+
+                // Idempotence : éviter d'enregistrer deux fois le même paiement si l'utilisateur rafraîchit la page
+                $existing = \App\Models\Payment::where('gateway_reference', $gatewayRef)->first();
+                if ($existing) {
+                    return [
+                        'success' => true,
+                        'payment' => $existing,
+                        'message' => 'Paiement par carte confirmé avec succès.',
+                    ];
+                }
 
                 $payment = $this->paymentService->recordPayment(new RecordPaymentDTO(
                     userId: $userId,
@@ -114,27 +128,28 @@ class StripePaymentService
                     installmentId: $installmentId,
                     amount: $amount,
                     currency: $currency,
-                    paymentMethod: 'stripe',
-                    gatewayReference: $session->payment_intent ?? $session->id,
-                    notes: "Paiement en ligne validé par Stripe Checkout (Session {$session->id})"
+                    paymentMethod: 'card',
+                    gatewayReference: $gatewayRef,
+                    notes: "Paiement par carte bancaire validé en ligne (Session {$session->id})",
+                    purpose: $purpose
                 ));
 
                 return [
                     'success' => true,
                     'payment' => $payment,
-                    'message' => 'Paiement Stripe confirmé avec succès.',
+                    'message' => 'Paiement par carte confirmé avec succès.',
                 ];
             }
 
             return [
                 'success' => false,
-                'message' => 'La session Stripe n\'a pas encore le statut payé.',
+                'message' => 'La session de paiement n\'a pas encore le statut payé.',
             ];
         }
 
         return [
             'success' => true,
-            'message' => 'Simulation de paiement Stripe enregistrée.',
+            'message' => 'Paiement par carte enregistré.',
         ];
     }
 }

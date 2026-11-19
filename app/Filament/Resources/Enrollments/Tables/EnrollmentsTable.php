@@ -47,8 +47,12 @@ class EnrollmentsTable
                     ->label('Formation & Modalité')
                     ->state(fn (Enrollment $record): string => $record->level?->name ?? 'Niveau non défini')
                     ->description(function (Enrollment $record): string {
+                        if ($record->visa_type === 'visitor_visa') {
+                            return 'Présentiel Brésil (Visa Visiteur)';
+                        }
                         return match ($record->offer?->study_mode) {
-                            'in_person_brazil' => 'Présentiel Brésil (Visa VITEM IV)',
+                            'in_person_brazil'    => 'Présentiel Brésil (Visa VITEM IV)',
+                            'visitor_visa_brazil' => 'Présentiel Brésil (Visa Visiteur)',
                             'remote_home_country' => 'En Ligne (Pays d’origine)',
                             default => 'Formation standard',
                         };
@@ -61,6 +65,30 @@ class EnrollmentsTable
                     ->description(fn (Enrollment $record): string => $record->classGroup?->name ? "Classe : {$record->classGroup->name}" : ($record->country_residence ? "Résidence : {$record->country_residence}" : 'Sans classe assignée'))
                     ->icon('heroicon-m-map-pin')
                     ->iconColor(fn (Enrollment $record): string => $record->city ? 'primary' : 'gray'),
+
+                TextColumn::make('study_purpose')
+                    ->label('Objet d’Étude')
+                    ->badge()
+                    ->color('warning')
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'etudes_superieures' => 'Études Supérieures',
+                        'business_affaires'  => 'Business / Affaires',
+                        'travail'            => 'Travail',
+                        'conversation'       => 'Conversation',
+                        'celpe_bras'         => 'CELPE-Bras',
+                        'tourisme_immersion' => 'Immersion',
+                        default              => $state ?: '—',
+                    })
+                    ->placeholder('—')
+                    ->toggleable(),
+
+                TextColumn::make('previous_level_certificate_path')
+                    ->label('Justificatif Préc.')
+                    ->formatStateUsing(fn (?string $state): string => $state ? 'Voir fichier' : '—')
+                    ->url(fn (Enrollment $record): ?string => $record->previous_level_certificate_path ? asset('storage/' . $record->previous_level_certificate_path) : null, shouldOpenInNewTab: true)
+                    ->color(fn (?string $state): string => $state ? 'primary' : 'gray')
+                    ->icon(fn (?string $state): ?string => $state ? 'heroicon-m-document-arrow-down' : null)
+                    ->toggleable(),
 
                 TextColumn::make('target_university')
                     ->label('Univ. Cible')
@@ -92,13 +120,14 @@ class EnrollmentsTable
                     }),
 
                 TextColumn::make('visaApplication.visa_outcome')
-                    ->label('Visa VITEM IV')
+                    ->label('Visa Brésil')
                     ->badge()
                     ->formatStateUsing(function (?string $state, Enrollment $record): string {
-                        if ($record->offer?->study_mode !== 'in_person_brazil') {
+                        if ($record->offer?->study_mode === 'remote_home_country' && $record->visa_type !== 'visitor_visa') {
                             return 'Non requis';
                         }
-                        return match ($state) {
+                        $prefix = $record->visa_type === 'visitor_visa' ? 'Visiteur : ' : 'VITEM IV : ';
+                        return $prefix . match ($state) {
                             'granted' => 'Accordé',
                             'pending' => 'En Instruction',
                             'refused' => 'Refusé (85%)',
@@ -106,7 +135,7 @@ class EnrollmentsTable
                         };
                     })
                     ->color(function (?string $state, Enrollment $record): string {
-                        if ($record->offer?->study_mode !== 'in_person_brazil') {
+                        if ($record->offer?->study_mode === 'remote_home_country' && $record->visa_type !== 'visitor_visa') {
                             return 'gray';
                         }
                         return match ($state) {

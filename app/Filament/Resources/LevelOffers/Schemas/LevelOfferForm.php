@@ -31,15 +31,24 @@ class LevelOfferForm
                             Select::make('study_mode')
                                 ->label('Modalité d’Études')
                                 ->options([
-                                    'in_person_brazil' => 'Présentiel Brésil (Visa VITEM IV)',
+                                    'in_person_brazil'    => 'Présentiel Brésil (Visa VITEM IV)',
+                                    'visitor_visa_brazil' => 'Présentiel Brésil (Visa Visiteur)',
                                     'remote_home_country' => 'En Ligne (Pays d’origine)',
                                 ])
                                 ->required(),
                         ]),
 
-                        Grid::make(2)->schema([
+                        Grid::make(3)->schema([
+                            TextInput::make('service_fee')
+                                ->label('Frais de Service (Plateforme & Démarches)')
+                                ->numeric()
+                                ->default(150)
+                                ->live(onBlur: true)
+                                ->helperText(fn ($get) => CurrencyService::getConversionHelper((float) $get('service_fee'), $get('currency')))
+                                ->required(),
+
                             TextInput::make('base_price')
-                                ->label('Tarif de Base')
+                                ->label('Frais de Scolarité (Tarif Comptant)')
                                 ->numeric()
                                 ->live(onBlur: true)
                                 ->helperText(fn ($get) => CurrencyService::getConversionHelper((float) $get('base_price'), $get('currency')))
@@ -50,9 +59,36 @@ class LevelOfferForm
                                 ->options([
                                     'EUR' => 'EUR (€) — Euro',
                                     'XOF' => 'XOF (FCFA) — Franc CFA',
+                                    'BRL' => 'BRL (R$) — Real Brésilien',
                                 ])
                                 ->default('EUR')
                                 ->live()
+                                ->required(),
+                        ]),
+
+                        Grid::make(3)->schema([
+                            TextInput::make('installment_1_amount')
+                                ->label('Montant Tranche 1 (Mois 1)')
+                                ->numeric()
+                                ->placeholder('Ex: 200')
+                                ->live(onBlur: true)
+                                ->helperText(fn ($get) => $get('installment_1_amount') ? CurrencyService::getConversionHelper((float) $get('installment_1_amount'), $get('currency')) : 'Défini par l’administrateur')
+                                ->required(),
+
+                            TextInput::make('installment_2_amount')
+                                ->label('Montant Tranche 2 (Mois 2)')
+                                ->numeric()
+                                ->placeholder('Ex: 150')
+                                ->live(onBlur: true)
+                                ->helperText(fn ($get) => $get('installment_2_amount') ? CurrencyService::getConversionHelper((float) $get('installment_2_amount'), $get('currency')) : 'Défini par l’administrateur')
+                                ->required(),
+
+                            TextInput::make('installment_3_amount')
+                                ->label('Montant Tranche 3 (Mois 3)')
+                                ->numeric()
+                                ->placeholder('Ex: 150')
+                                ->live(onBlur: true)
+                                ->helperText(fn ($get) => $get('installment_3_amount') ? CurrencyService::getConversionHelper((float) $get('installment_3_amount'), $get('currency')) : 'Défini par l’administrateur')
                                 ->required(),
                         ]),
 

@@ -83,8 +83,12 @@ class EnrollmentForm
                             ->options(function () {
                                 return LevelOffer::with('level')->get()->mapWithKeys(function ($o) {
                                     $code = $o->level?->code ?? '';
-                                    $mode = $o->study_mode === 'in_person_brazil' ? 'Présentiel Brésil (Visa VITEM IV)' : 'En ligne (Pays d’origine)';
-                                    $dualPrice = CurrencyService::formatDual((float) $o->base_price, 'EUR');
+                                    $mode = match ($o->study_mode) {
+                                        'in_person_brazil'    => 'Présentiel Brésil (Visa VITEM IV)',
+                                        'visitor_visa_brazil' => 'Présentiel Brésil (Visa Visiteur)',
+                                        default               => 'En ligne (Pays d’origine)',
+                                    };
+                                    $dualPrice = CurrencyService::formatDual((float) $o->base_price, $o->currency ?? 'EUR');
                                     return [$o->id => "Niveau {$code} — {$mode} ({$dualPrice})"];
                                 });
                             })
@@ -120,6 +124,35 @@ class EnrollmentForm
                         TextInput::make('country_residence')
                             ->label('Pays de Résidence Actuel')
                             ->placeholder('Ex: Sénégal, Côte d\'Ivoire...'),
+                    ]),
+
+                    Grid::make(3)->schema([
+                        Select::make('visa_type')
+                            ->label('Type de Visa')
+                            ->options([
+                                'vitem_iv'     => 'Visa VITEM IV (Étudiant)',
+                                'visitor_visa' => 'Visa Visiteur (VIVIS)',
+                            ])
+                            ->placeholder('Aucun (En ligne)'),
+
+                        Select::make('study_purpose')
+                            ->label('Objet d’Étude')
+                            ->options([
+                                'etudes_superieures' => 'Études Supérieures / Université',
+                                'business_affaires'  => 'Business & Affaires',
+                                'travail'            => 'Travail / Carrière Professionnelle',
+                                'conversation'       => 'Conversation & Culture',
+                                'celpe_bras'         => 'Examen Officiel CELPE-Bras',
+                                'tourisme_immersion' => 'Voyage & Immersion',
+                                'autre'              => 'Autre projet',
+                            ])
+                            ->searchable()
+                            ->placeholder('Sélectionner l’objet'),
+
+                        TextInput::make('previous_level_certificate_path')
+                            ->label('Justificatif Niveau Précédent (Fichier)')
+                            ->placeholder('Aucun fichier téléversé')
+                            ->readOnly(),
                     ]),
 
                     Grid::make(2)->schema([

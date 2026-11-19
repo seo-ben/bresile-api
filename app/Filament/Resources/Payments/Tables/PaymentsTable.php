@@ -48,29 +48,30 @@ class PaymentsTable
                     ->color('emerald')
                     ->description(fn (Payment $record) => $record->enrollment?->city?->name ? 'Destination: ' . $record->enrollment->city->name : ''),
 
+                TextColumn::make('purpose')
+                    ->label('Type de Frais')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'service_fee'      => 'Frais de Service',
+                        'final_settlement' => 'Scolarité (Solde)',
+                        default            => 'Frais de Scolarité',
+                    })
+                    ->color(fn (?string $state): string => match ($state) {
+                        'service_fee' => 'warning',
+                        default       => 'success',
+                    }),
+
                 TextColumn::make('amount')
                     ->label('Montant Réglé')
                     ->state(function (Payment $record): string {
-                        $activeCurrency = CurrencyService::getActiveCurrency();
                         $baseCurrency = $record->currency ?? 'EUR';
                         $baseAmount = (float) $record->amount;
-                        if ($activeCurrency === CurrencyService::XOF) {
-                            $converted = CurrencyService::convert($baseAmount, $baseCurrency, CurrencyService::XOF);
-                            return number_format($converted, 0, ',', ' ') . ' FCFA';
-                        }
-                        $converted = CurrencyService::convert($baseAmount, $baseCurrency, CurrencyService::EUR);
-                        return number_format($converted, 2, ',', ' ') . ' €';
+                        return CurrencyService::formatInActiveCurrency($baseAmount, $baseCurrency);
                     })
                     ->description(function (Payment $record): string {
-                        $activeCurrency = CurrencyService::getActiveCurrency();
                         $baseCurrency = $record->currency ?? 'EUR';
                         $baseAmount = (float) $record->amount;
-                        if ($activeCurrency === CurrencyService::XOF) {
-                            $converted = CurrencyService::convert($baseAmount, $baseCurrency, CurrencyService::EUR);
-                            return '≈ ' . number_format($converted, 2, ',', ' ') . ' €';
-                        }
-                        $converted = CurrencyService::convert($baseAmount, $baseCurrency, CurrencyService::XOF);
-                        return '≈ ' . number_format($converted, 0, ',', ' ') . ' FCFA';
+                        return CurrencyService::formatSubEquivalents($baseAmount, $baseCurrency);
                     })
                     ->weight('bold')
                     ->sortable(),
@@ -81,7 +82,7 @@ class PaymentsTable
                     ->formatStateUsing(fn (?string $state): string => match ($state) {
                         'bank_transfer' => 'Virement Bancaire',
                         'pix' => 'Pix (Brésil)',
-                        'credit_card' => 'Carte Bancaire',
+                        'card_visa', 'credit_card', 'card' => 'Carte Bancaire',
                         'cash' => 'Espèces',
                         default => ucfirst($state ?? 'Virement'),
                     })

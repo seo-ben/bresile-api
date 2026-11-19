@@ -1,36 +1,35 @@
 @php
     $activeCurrency = \App\Services\CurrencyService::getActiveCurrency();
-    $rate = \App\Services\CurrencyService::getEurToXofRate();
+    $rateXof = \App\Services\CurrencyService::getEurToXofRate();
+    $rateBrl = \App\Services\CurrencyService::getEurToBrlRate();
 @endphp
 
 <div style="display: flex; flex-direction: row; align-items: center; gap: 10px; margin: 0 10px;">
-    {{-- Sélecteur de Devise EUR / FCFA avec conversion en direct --}}
-    <div style="display: inline-flex; align-items: center; background-color: #f1f5f9; border-radius: 8px; padding: 2px; border: 1px solid #cbd5e1;" title="Taux direct internet : 1 € = {{ number_format($rate, 2, ',', ' ') }} FCFA">
-        <a href="{{ route('admin.switch-currency', 'EUR') }}" 
-           title="Basculer tout le système en Euros (€)"
-           style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; transition: all 0.15s ease; {{ $activeCurrency === 'EUR' ? 'background-color: #ffffff; color: #0f172a; box-shadow: 0 1px 2px rgba(0,0,0,0.1);' : 'color: #64748b;' }}">
-            <i class="fa-solid fa-euro-sign" style="font-size: 10px; color: {{ $activeCurrency === 'EUR' ? '#059669' : '#94a3b8' }};"></i>
-            <span>EUR (€)</span>
-        </a>
-        <a href="{{ route('admin.switch-currency', 'XOF') }}" 
-           title="Basculer tout le système en Francs CFA (FCFA)"
-           style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; transition: all 0.15s ease; {{ $activeCurrency === 'XOF' ? 'background-color: #ffffff; color: #0f172a; box-shadow: 0 1px 2px rgba(0,0,0,0.1);' : 'color: #64748b;' }}">
-            <i class="fa-solid fa-coins" style="font-size: 10px; color: {{ $activeCurrency === 'XOF' ? '#d97706' : '#94a3b8' }};"></i>
-            <span>FCFA (XOF)</span>
-        </a>
+    {{-- Liste déroulante de sélection de Devise (€ / XOF / R$) --}}
+    <div style="position: relative; display: inline-flex; align-items: center;">
+        <select
+            aria-label="Sélectionner la devise du système"
+            title="Changer la devise globale du système"
+            onchange="window.location.href = this.value"
+            style="appearance: none; -webkit-appearance: none; -moz-appearance: none; background-color: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 8px; padding: 5px 28px 5px 12px; font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); outline: none; transition: all 0.15s ease;">
+            <option value="{{ route('admin.switch-currency', 'EUR') }}" {{ $activeCurrency === 'EUR' ? 'selected' : '' }}>
+                €
+            </option>
+            <option value="{{ route('admin.switch-currency', 'XOF') }}" {{ $activeCurrency === 'XOF' ? 'selected' : '' }}>
+                XOF
+            </option>
+            <option value="{{ route('admin.switch-currency', 'BRL') }}" {{ $activeCurrency === 'BRL' ? 'selected' : '' }}>
+                R$
+            </option>
+        </select>
+        <i class="fa-solid fa-chevron-down"
+           style="position: absolute; right: 10px; font-size: 9px; color: #64748b; pointer-events: none;"></i>
     </div>
 
     {{-- Taux de change en direct selon Internet --}}
     <div style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; background-color: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; white-space: nowrap;" title="Taux de parité garanti & cours direct internet">
         <i class="fa-solid fa-globe" style="font-size: 10px; color: #059669;"></i>
-        <span>1 € = {{ number_format($rate, 2, ',', ' ') }} FCFA</span>
-    </div>
-
-    {{-- Indicateur Brasília --}}
-    <div style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; background-color: #f8fafc; color: #334155; border: 1px solid #e2e8f0; white-space: nowrap;">
-        <i class="fa-solid fa-circle" style="font-size: 7px; color: #10b981;"></i>
-        <span>Brasília</span>
-        <span style="color: #94a3b8; font-weight: 400; font-size: 11px;">UTC-3</span>
+        <span>1 € = {{ number_format($rateXof, 2, ',', ' ') }} FCFA • R$ {{ number_format($rateBrl, 2, ',', ' ') }}</span>
     </div>
 
     {{-- Bouton vers le site public --}}

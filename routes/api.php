@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\EnrollmentController;
 use App\Http\Controllers\Api\V1\FormController;
 use App\Http\Controllers\Api\V1\PaymentController;
+use App\Http\Controllers\Api\V1\StudentRequestController;
 use App\Http\Controllers\Api\V1\VisaController;
 use Illuminate\Support\Facades\Route;
 
@@ -36,6 +37,9 @@ Route::prefix('v1')->group(function () {
     // Capture des numéros WhatsApp depuis le bandeau du site pour l'administration
     Route::post('/leads/whatsapp', [AcademicController::class, 'storeWhatsappLead']);
 
+    // Identité du site (Logo, nom, slogan multilingue, email & téléphone)
+    Route::get('/site/settings', [AcademicController::class, 'getSiteSettings']);
+
 
     // ==========================================
     // 2. ENDPOINTS PROTÉGÉS (auth:sanctum)
@@ -44,6 +48,7 @@ Route::prefix('v1')->group(function () {
 
         // Session & Profil
         Route::get('/auth/me', [AuthController::class, 'me']);
+        Route::put('/auth/profile', [AuthController::class, 'updateProfile']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
 
         // Soumission de formulaire dynamique
@@ -64,5 +69,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/visa/{enrollmentId}', [VisaController::class, 'show']);
         Route::post('/visa/initiate', [VisaController::class, 'initiate']);
         Route::post('/visa/declare-outcome', [VisaController::class, 'declareOutcome']);
+
+        // Demandes étudiantes à l'administration (avec pièces jointes et retours)
+        Route::get('/student-requests', [StudentRequestController::class, 'index']);
+        Route::post('/student-requests', [StudentRequestController::class, 'store']);
     });
 });

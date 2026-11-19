@@ -60,15 +60,9 @@ class RefundRequestsTable
                 TextColumn::make('total_paid_amount')
                     ->label('Frais Versés')
                     ->state(function (RefundRequest $record): string {
-                        $activeCurrency = CurrencyService::getActiveCurrency();
                         $baseCurrency = $record->currency ?? 'EUR';
                         $baseAmount = (float) $record->total_paid_amount;
-                        if ($activeCurrency === CurrencyService::XOF) {
-                            $converted = CurrencyService::convert($baseAmount, $baseCurrency, CurrencyService::XOF);
-                            return number_format($converted, 0, ',', ' ') . ' FCFA';
-                        }
-                        $converted = CurrencyService::convert($baseAmount, $baseCurrency, CurrencyService::EUR);
-                        return number_format($converted, 2, ',', ' ') . ' €';
+                        return CurrencyService::formatInActiveCurrency($baseAmount, $baseCurrency);
                     })
                     ->sortable(),
 
@@ -81,26 +75,14 @@ class RefundRequestsTable
                 TextColumn::make('refund_amount')
                     ->label('Montant Restitué')
                     ->state(function (RefundRequest $record): string {
-                        $activeCurrency = CurrencyService::getActiveCurrency();
                         $baseCurrency = $record->currency ?? 'EUR';
                         $baseAmount = (float) $record->refund_amount;
-                        if ($activeCurrency === CurrencyService::XOF) {
-                            $converted = CurrencyService::convert($baseAmount, $baseCurrency, CurrencyService::XOF);
-                            return number_format($converted, 0, ',', ' ') . ' FCFA';
-                        }
-                        $converted = CurrencyService::convert($baseAmount, $baseCurrency, CurrencyService::EUR);
-                        return number_format($converted, 2, ',', ' ') . ' €';
+                        return CurrencyService::formatInActiveCurrency($baseAmount, $baseCurrency);
                     })
                     ->description(function (RefundRequest $record): string {
-                        $activeCurrency = CurrencyService::getActiveCurrency();
                         $baseCurrency = $record->currency ?? 'EUR';
                         $baseAmount = (float) $record->refund_amount;
-                        if ($activeCurrency === CurrencyService::XOF) {
-                            $converted = CurrencyService::convert($baseAmount, $baseCurrency, CurrencyService::EUR);
-                            return '≈ ' . number_format($converted, 2, ',', ' ') . ' €';
-                        }
-                        $converted = CurrencyService::convert($baseAmount, $baseCurrency, CurrencyService::XOF);
-                        return '≈ ' . number_format($converted, 0, ',', ' ') . ' FCFA';
+                        return CurrencyService::formatSubEquivalents($baseAmount, $baseCurrency);
                     })
                     ->sortable()
                     ->weight('bold')

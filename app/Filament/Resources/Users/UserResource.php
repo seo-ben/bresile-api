@@ -18,11 +18,17 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 class UserResource extends Resource
 {
     protected static \UnitEnum|string|null $navigationGroup = "Inscriptions & Visas";
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 4;
 
     protected static ?string $model = User::class;
+    protected static ?string $recordTitleAttribute = 'email';
     protected static ?string $navigationLabel = 'Étudiants & Utilisateurs';
     protected static ?string $pluralModelLabel = 'Étudiants & Utilisateurs';
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['email', 'profile.first_name', 'profile.last_name', 'profile.phone'];
+    }
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-users';
 

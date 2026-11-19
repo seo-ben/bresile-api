@@ -11,6 +11,7 @@ use App\Models\OfferPaymentPlan;
 use App\Models\User;
 use App\Models\UserProfile;
 use App\Models\VisaApplication;
+use App\Models\WhatsappLead;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -72,9 +73,38 @@ class AuthService
                 'user_id'      => $user->id,
                 'first_name'   => $dto->firstName,
                 'last_name'    => $dto->lastName,
+                'birth_date'   => $dto->birthDate,
                 'phone'        => $dto->phone,
                 'country_code' => $isoCode ?: 'SN',
             ]);
+
+            // 2b. Enregistrement automatique du numéro dans "Contacts WhatsApp reçus depuis le site"
+            if (! empty($dto->phone)) {
+                try {
+                    WhatsappLead::ensureTableExists();
+                    $dialCode = $dto->dialCode;
+                    $phoneOnly = $dto->phoneNumber;
+                    if (! $dialCode && preg_match('/^(\+\d{1,4})\s*(.*)$/', trim($dto->phone), $m)) {
+                        $dialCode = $m[1];
+                        $phoneOnly = trim($m[2]);
+                    }
+                    $dialCode = $dialCode ?: '+';
+                    $phoneOnly = $phoneOnly ?: trim($dto->phone);
+                    $fullWhatsapp = trim($dto->phone);
+
+                    WhatsappLead::create([
+                        'dial_code'     => $dialCode,
+                        'country_name'  => $dto->country,
+                        'phone_number'  => $phoneOnly,
+                        'full_whatsapp' => $fullWhatsapp,
+                        'locale'        => $dto->preferredLocale ?: 'fr',
+                        'status'        => 'enrolled',
+                        'admin_note'    => trim("Inscription site : {$dto->firstName} {$dto->lastName} ({$dto->email}) — Niveau : " . ($dto->levelChoice ?: 'A1') . ($dto->studyPurpose ? " — Objet : {$dto->studyPurpose}" : '')),
+                    ]);
+                } catch (\Throwable) {
+                    // Ne jamais bloquer l'inscription si la journalisation WhatsApp échoue
+                }
+            }
 
             // 3. Résolution du Niveau d'études (Level)
             $level = null;
@@ -94,11 +124,18 @@ class AuthService
                 $level = Level::orderBy('position')->first();
             }
 
-            // 4. Résolution du Mode d'apprentissage (Présentiel au Brésil vs En ligne)
+            // 4. Résolution du Mode d'apprentissage (Présentiel Visa VITEM IV, Visa Visiteur, ou En ligne)
             $rawMode = strtolower($dto->studyMode ?? '');
-            $studyMode = (str_contains($rawMode, 'ligne') || str_contains($rawMode, 'remote'))
-                ? 'remote_home_country'
-                : 'in_person_brazil';
+            if (str_contains($rawMode, 'ligne') || str_contains($rawMode, 'remote')) {
+                $studyMode = 'remote_home_country';
+                $visaType = null;
+            } elseif (str_contains($rawMode, 'visiteur') || str_contains($rawMode, 'visitor') || str_contains($rawMode, 'visitante')) {
+                $studyMode = 'visitor_visa_brazil';
+                $visaType = 'visitor_visa';
+            } else {
+                $studyMode = 'in_person_brazil';
+                $visaType = 'vitem_iv';
+            }
 
             // 5. Résolution de l'Offre académique (LevelOffer)
             $offer = null;
@@ -106,6 +143,9 @@ class AuthService
                 $offer = LevelOffer::where('level_id', $level->id)
                     ->where('study_mode', $studyMode)
                     ->first()
+                    ?? ($studyMode === 'visitor_visa_brazil'
+                        ? LevelOffer::where('level_id', $level->id)->where('study_mode', 'in_person_brazil')->first()
+                        : null)
                     ?? LevelOffer::where('level_id', $level->id)->first();
             }
             if (!$offer) {
@@ -114,7 +154,7 @@ class AuthService
 
             // 6. Résolution de la Ville d'accueil (BrazilCity)
             $city = null;
-            if ($studyMode === 'in_person_brazil') {
+            if (in_array($studyMode, ['in_person_brazil', 'visitor_visa_brazil'], true)) {
                 if ($dto->brazilCityId && is_numeric($dto->brazilCityId)) {
                     $city = BrazilCity::find($dto->brazilCityId);
                 }
@@ -134,21 +174,24 @@ class AuthService
             // C'est ce qui apparaît dans le panneau Filament de l'administrateur sous "Dossiers d’Inscription"
             if ($level && $offer) {
                 $enrollment = Enrollment::create([
-                    'student_id'         => $user->id,
-                    'level_id'           => $level->id,
-                    'offer_id'           => $offer->id,
-                    'payment_plan_id'    => $plan?->id,
-                    'brazil_city_id'     => $city?->id,
-                    'target_university'  => $dto->targetUniversity,
-                    'country_residence'  => $dto->country,
-                    'rhythm'             => 'day',
-                    'status'             => 'pending_payment',
-                    'status_reason'      => 'Nouvelle inscription enregistrée via la plateforme web Brasil·É',
-                    'enrolled_at'        => now(),
+                    'student_id'                      => $user->id,
+                    'level_id'                        => $level->id,
+                    'offer_id'                        => $offer->id,
+                    'payment_plan_id'                 => $plan?->id,
+                    'brazil_city_id'                  => $city?->id,
+                    'target_university'               => $dto->targetUniversity,
+                    'country_residence'               => $dto->country,
+                    'study_purpose'                   => $dto->studyPurpose,
+                    'visa_type'                       => $visaType,
+                    'previous_level_certificate_path' => $dto->previousLevelCertificatePath,
+                    'rhythm'                          => 'day',
+                    'status'                          => 'pending_payment',
+                    'status_reason'                   => 'Nouvelle inscription enregistrée via la plateforme web Brasil·É',
+                    'enrolled_at'                     => now(),
                 ]);
 
-                // Initialisation du suivi de Visa VITEM IV pour les étudiants en présentiel
-                if ($studyMode === 'in_person_brazil') {
+                // Initialisation du suivi de Visa pour les étudiants en présentiel (VITEM IV ou Visa Visiteur)
+                if (in_array($studyMode, ['in_person_brazil', 'visitor_visa_brazil'], true)) {
                     VisaApplication::create([
                         'student_id'    => $user->id,
                         'enrollment_id' => $enrollment->id,

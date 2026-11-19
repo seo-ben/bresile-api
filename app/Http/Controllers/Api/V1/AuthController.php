@@ -23,7 +23,14 @@ class AuthController extends Controller
 
     public function register(RegisterRequest $request): JsonResponse
     {
-        $dto = RegisterStudentDTO::fromArray($request->validated());
+        $validated = $request->validated();
+
+        if ($request->hasFile('previous_level_certificate')) {
+            $path = $request->file('previous_level_certificate')->store('level_certificates', 'public');
+            $validated['previous_level_certificate_path'] = $path;
+        }
+
+        $dto = RegisterStudentDTO::fromArray($validated);
         $result = $this->authService->registerStudent($dto);
 
         return $this->successResponse(
@@ -55,8 +62,52 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         return $this->successResponse(
-            data: new UserResource($request->user()->load(['profile', 'enrollments.level', 'enrollments.city', 'enrollments.offer.paymentPlans', 'enrollments.installments', 'visaApplications'])),
+            data: new UserResource($request->user()->load(['profile', 'enrollments.level', 'enrollments.city', 'enrollments.offer.paymentPlans', 'enrollments.installments', 'visaApplications.documents.file'])),
             message: 'Profil utilisateur récupéré.'
+        );
+    }
+
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'first_name'    => 'required|string|max:100',
+            'last_name'     => 'required|string|max:100',
+            'birth_date'    => 'nullable|date',
+            'phone'         => 'nullable|string|max:40',
+            'country_code'  => 'nullable|string|max:10',
+            'study_purpose' => 'nullable|string|max:120',
+            'rhythm'        => 'nullable|string|in:day,evening',
+        ]);
+
+        if ($user->profile) {
+            $user->profile->update([
+                'first_name'   => $validated['first_name'],
+                'last_name'    => $validated['last_name'],
+                'birth_date'   => $validated['birth_date'] ?? $user->profile->birth_date,
+                'phone'        => $validated['phone'] ?? $user->profile->phone,
+                'country_code' => ! empty($validated['country_code']) ? strtoupper(substr(trim($validated['country_code']), 0, 2)) : $user->profile->country_code,
+            ]);
+        }
+
+        $latestEnrollment = $user->enrollments()->latest('id')->first();
+        if ($latestEnrollment) {
+            $enrollmentUpdate = [];
+            if (array_key_exists('study_purpose', $validated) && $validated['study_purpose'] !== null) {
+                $enrollmentUpdate['study_purpose'] = $validated['study_purpose'];
+            }
+            if (! empty($validated['rhythm'])) {
+                $enrollmentUpdate['rhythm'] = $validated['rhythm'];
+            }
+            if (! empty($enrollmentUpdate)) {
+                $latestEnrollment->update($enrollmentUpdate);
+            }
+        }
+
+        return $this->successResponse(
+            data: new UserResource($user->fresh(['profile', 'enrollments.level', 'enrollments.city', 'enrollments.offer.paymentPlans', 'enrollments.installments', 'visaApplications.documents.file'])),
+            message: 'Vos informations ont été mises à jour avec succès.'
         );
     }
 

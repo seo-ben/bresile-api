@@ -20,8 +20,14 @@ class EnrollmentResource extends Resource
     protected static ?int $navigationSort = 1;
 
     protected static ?string $model = Enrollment::class;
+    protected static ?string $recordTitleAttribute = 'target_university';
     protected static ?string $navigationLabel = 'Dossiers d’Inscription';
     protected static ?string $pluralModelLabel = 'Dossiers d’Inscription';
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['target_university', 'country_residence', 'student.email', 'student.profile.first_name', 'student.profile.last_name'];
+    }
 
     public static function getRecordTitle(?\Illuminate\Database\Eloquent\Model $record): ?string
     {

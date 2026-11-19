@@ -20,9 +20,14 @@ class PaymentResource extends Resource
     protected static ?int $navigationSort = 1;
 
     protected static ?string $model = Payment::class;
-    protected static ?string $recordTitleAttribute = 'payment_reference';
+    protected static ?string $recordTitleAttribute = 'gateway_reference';
     protected static ?string $navigationLabel = 'Paiements & Virements';
     protected static ?string $pluralModelLabel = 'Paiements & Virements';
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['gateway_reference', 'student_payment_reference', 'student.email', 'student.profile.first_name', 'student.profile.last_name'];
+    }
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
 

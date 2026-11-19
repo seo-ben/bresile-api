@@ -107,6 +107,7 @@ class RefundRequestForm
                                 ->options([
                                     'EUR' => 'EUR (€) — Euro',
                                     'XOF' => 'XOF (FCFA) — Franc CFA',
+                                    'BRL' => 'BRL (R$) — Real Brésilien',
                                 ])
                                 ->default(fn () => CurrencyService::getActiveCurrency())
                                 ->live()

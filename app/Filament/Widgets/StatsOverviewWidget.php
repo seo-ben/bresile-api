@@ -20,19 +20,15 @@ class StatsOverviewWidget extends BaseWidget
         $totalEnrollments = Enrollment::count();
         $pendingPayments = Payment::where('status', 'awaiting_confirmation')->count();
 
-        // Calculate total confirmed in EUR
-        $totalEur = (float) Payment::where('status', 'confirmed')->sum('amount');
-        $activeCurrency = CurrencyService::getActiveCurrency();
-
-        if ($activeCurrency === CurrencyService::XOF) {
-            $totalConverted = CurrencyService::convert($totalEur, CurrencyService::EUR, CurrencyService::XOF);
-            $mainDisplay = number_format($totalConverted, 0, ',', ' ') . ' FCFA';
-            $subDisplay = '≈ ' . number_format($totalEur, 2, ',', ' ') . ' €';
-        } else {
-            $totalConverted = CurrencyService::convert($totalEur, CurrencyService::EUR, CurrencyService::XOF);
-            $mainDisplay = number_format($totalEur, 2, ',', ' ') . ' €';
-            $subDisplay = '≈ ' . number_format($totalConverted, 0, ',', ' ') . ' FCFA';
+        // Calculate total confirmed in EUR (converting each payment from its stored currency to EUR)
+        $confirmedPayments = Payment::where('status', 'confirmed')->get(['amount', 'currency']);
+        $totalEur = 0.0;
+        foreach ($confirmedPayments as $p) {
+            $totalEur += CurrencyService::convert((float) $p->amount, $p->currency ?: CurrencyService::EUR, CurrencyService::EUR);
         }
+
+        $mainDisplay = CurrencyService::formatInActiveCurrency($totalEur, CurrencyService::EUR);
+        $subDisplay = CurrencyService::formatSubEquivalents($totalEur, CurrencyService::EUR);
 
         $pendingVisas = VisaApplication::where('visa_outcome', 'pending')->count();
         $pendingRefunds = RefundRequest::where('status', 'submitted')->count();

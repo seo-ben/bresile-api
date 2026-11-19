@@ -48,9 +48,9 @@ class EnrollmentController extends Controller
     {
         $validated = $request->validate([
             'level_id'        => ['required', 'integer', 'exists:levels,id'],
-            'study_mode'      => ['required', 'string', 'in:remote_home_country,in_person_brazil'],
+            'study_mode'      => ['required', 'string', 'in:remote_home_country,in_person_brazil,visitor_visa_brazil'],
             'rhythm'          => ['required', 'string', 'in:day,evening'],
-            'brazil_city_id'  => ['nullable', 'required_if:study_mode,in_person_brazil', 'integer', 'exists:brazil_cities,id'],
+            'brazil_city_id'  => ['nullable', 'required_if:study_mode,in_person_brazil,visitor_visa_brazil', 'integer', 'exists:brazil_cities,id'],
             'payment_plan_id' => ['nullable', 'integer', 'exists:offer_payment_plans,id'],
         ]);
 

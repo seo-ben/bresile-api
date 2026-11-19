@@ -31,16 +31,34 @@ class AcademicController extends Controller
             ->orderBy('position')
             ->get();
 
-        if ($lang !== 'fr') {
-            $levels->each(function ($level) use ($lang) {
+        $activeCurrency = \App\Services\CurrencyService::getActiveCurrency();
+
+        $levels->each(function ($level) use ($lang, $activeCurrency) {
+            if ($lang !== 'fr') {
                 $level->name = $this->translator->translate($level->name, $lang);
-                $level->offers?->each(function ($offer) use ($lang) {
-                    $offer->paymentPlans?->each(function ($plan) use ($lang) {
+            }
+            $level->offers?->each(function ($offer) use ($lang, $activeCurrency) {
+                $sourceCurr = $offer->currency ?: 'EUR';
+                $offer->service_fee = \App\Services\CurrencyService::convert((float) ($offer->service_fee ?? 150), $sourceCurr, $activeCurrency);
+                $offer->base_price = \App\Services\CurrencyService::convert((float) $offer->base_price, $sourceCurr, $activeCurrency);
+                if ($offer->installment_1_amount !== null) {
+                    $offer->installment_1_amount = \App\Services\CurrencyService::convert((float) $offer->installment_1_amount, $sourceCurr, $activeCurrency);
+                }
+                if ($offer->installment_2_amount !== null) {
+                    $offer->installment_2_amount = \App\Services\CurrencyService::convert((float) $offer->installment_2_amount, $sourceCurr, $activeCurrency);
+                }
+                if ($offer->installment_3_amount !== null) {
+                    $offer->installment_3_amount = \App\Services\CurrencyService::convert((float) $offer->installment_3_amount, $sourceCurr, $activeCurrency);
+                }
+                $offer->currency = $activeCurrency;
+                $offer->paymentPlans?->each(function ($plan) use ($lang, $sourceCurr, $activeCurrency) {
+                    if ($lang !== 'fr') {
                         $plan->label = $this->translator->translate($plan->label, $lang);
-                    });
+                    }
+                    $plan->total_amount = \App\Services\CurrencyService::convert((float) $plan->total_amount, $sourceCurr, $activeCurrency);
                 });
             });
-        }
+        });
 
         return $this->successResponse(
             data: $levels,
@@ -178,6 +196,16 @@ class AcademicController extends Controller
             data: $lead,
             message: 'Numéro WhatsApp transmis à l\'administration avec succès.',
             code: 201
+        );
+    }
+
+    public function getSiteSettings(Request $request): JsonResponse
+    {
+        $lang = $this->translator->resolveLocale($request);
+
+        return $this->successResponse(
+            data: \App\Services\SiteSettingsService::toPublicArray($lang),
+            message: 'Paramètres du site récupérés avec succès.'
         );
     }
 }

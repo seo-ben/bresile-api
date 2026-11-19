@@ -231,6 +231,16 @@ class RegistrationFormAndSettingsSeeder extends Seeder
         }
 
         // 5. Paramètres système (app_settings)
+        // Copier le logo par défaut dans storage/app/public/site_branding/logo.png s'il n'existe pas encore
+        $defaultLogoDest = storage_path('app/public/site_branding/logo.png');
+        $sourceLogo = public_path('logo.png');
+        if (file_exists($sourceLogo) && ! file_exists($defaultLogoDest)) {
+            if (! is_dir(dirname($defaultLogoDest))) {
+                mkdir(dirname($defaultLogoDest), 0755, true);
+            }
+            @copy($sourceLogo, $defaultLogoDest);
+        }
+
         $settings = [
             [
                 'setting_key' => 'bank_transfer.confirmation_delay_hours',
@@ -245,7 +255,22 @@ class RegistrationFormAndSettingsSeeder extends Seeder
             [
                 'setting_key' => 'system.default_currency',
                 'value_json'  => '"EUR"',
-                'description' => 'Devise active globale du système (EUR ou XOF/FCFA)',
+                'description' => 'Devise active globale du système (EUR, XOF/FCFA ou BRL/R$)',
+            ],
+            [
+                'setting_key' => 'site.branding',
+                'value_json'  => json_encode([
+                    'site_name'       => 'Brasil·É',
+                    'tagline_fr'      => 'ÉCOLE DE PORTUGAIS & MOBILITÉ AU BRÉSIL',
+                    'tagline_en'      => 'PORTUGUESE SCHOOL & STUDENT MOBILITY IN BRAZIL',
+                    'tagline_pt'      => 'ESCOLA DE PORTUGUÊS & MOBILIDADE NO BRASIL',
+                    'logo_path'       => file_exists($defaultLogoDest) ? 'site_branding/logo.png' : null,
+                    'contact_email'   => 'contact@brasil-e.com',
+                    'contact_phone'   => '+55 61 99999-0000',
+                    'contact_address' => 'Brasília, Distrito Federal — Brésil',
+                    'website_url'     => 'www.brasil-e.com',
+                ], JSON_UNESCAPED_UNICODE),
+                'description' => 'Identité du site : Logo, nom, slogan multilingue (FR/EN/PT) et coordonnées de contact',
             ],
         ];
 
@@ -255,6 +280,29 @@ class RegistrationFormAndSettingsSeeder extends Seeder
                     'updated_at' => now(),
                 ]));
             }
+        }
+
+        // 5b. Remplir les 3 tranches par défaut sur les level_offers existantes qui ne sont pas encore configurées
+        $offersWithoutInstallments = DB::table('level_offers')
+            ->whereNull('installment_1_amount')
+            ->get();
+
+        foreach ($offersWithoutInstallments as $offer) {
+            $base = (float) $offer->base_price;
+            $t2 = floor(($base / 3) / 5) * 5;
+            if ($t2 <= 0) {
+                $t2 = round($base / 3, 2);
+            }
+            $t3 = $t2;
+            $t1 = round($base - $t2 - $t3, 2);
+
+            DB::table('level_offers')
+                ->where('id', $offer->id)
+                ->update([
+                    'installment_1_amount' => $t1,
+                    'installment_2_amount' => $t2,
+                    'installment_3_amount' => $t3,
+                ]);
         }
 
         // 6. Comptes bancaires (bank_accounts)
@@ -279,6 +327,17 @@ class RegistrationFormAndSettingsSeeder extends Seeder
                 'country_code'   => 'FR',
                 'currency'       => 'EUR',
                 'instructions'   => 'Virement international en Euros. Indiquer le Nom et Prénom de l’étudiant.',
+                'is_active'      => 1,
+            ],
+            [
+                'label'          => 'Compte Brésil Pix / Real Brésilien (R$)',
+                'bank_name'      => 'Banco do Brasil',
+                'account_holder' => 'Brasil·É Escola de Idiomas LTDA',
+                'account_number' => 'PIX-BRASILE-DF-2026',
+                'swift_bic'      => 'BRASBRRJ',
+                'country_code'   => 'BR',
+                'currency'       => 'BRL',
+                'instructions'   => 'Paiement local au Brésil via Pix ou TED en Reais (R$). Indiquer le nom de l’étudiant.',
                 'is_active'      => 1,
             ],
         ];

@@ -20,9 +20,15 @@ class CmsContentResource extends Resource
     protected static ?int $navigationSort = 3;
 
     protected static ?string $model = CmsContent::class;
+    protected static ?string $recordTitleAttribute = 'title';
 
     protected static ?string $navigationLabel = "Contenus du Site Web";
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-window';
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['title', 'content_key', 'body'];
+    }
 
     public static function form(Schema $schema): Schema
     {

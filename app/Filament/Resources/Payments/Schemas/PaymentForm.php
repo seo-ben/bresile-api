@@ -70,6 +70,7 @@ class PaymentForm
                                 ->options([
                                     'EUR' => 'EUR (€) — Euro',
                                     'XOF' => 'XOF (FCFA) — Franc CFA',
+                                    'BRL' => 'BRL (R$) — Real Brésilien',
                                 ])
                                 ->default(fn () => CurrencyService::getActiveCurrency())
                                 ->live()
@@ -91,10 +92,11 @@ class PaymentForm
                                 ->required(),
 
                             Select::make('purpose')
-                                ->label('Motif du Paiement')
+                                ->label('Type de Frais (Motif)')
                                 ->options([
-                                    'level_fee' => 'Frais de Formation / Inscription',
-                                    'final_settlement' => 'Solde Définitif',
+                                    'service_fee'      => 'Frais de Service (Plateforme & Démarches)',
+                                    'level_fee'        => 'Frais de Scolarité (Formation / Tranche)',
+                                    'final_settlement' => 'Frais de Scolarité (Solde Définitif)',
                                 ])
                                 ->default('level_fee')
                                 ->required(),

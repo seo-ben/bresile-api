@@ -10,8 +10,10 @@ class CurrencyService
 {
     public const EUR = 'EUR';
     public const XOF = 'XOF';
+    public const BRL = 'BRL';
 
     public const OFFICIAL_EUR_TO_XOF = 655.957;
+    public const OFFICIAL_EUR_TO_BRL = 6.15;
 
     /**
      * Get the live conversion rate between EUR and XOF from Internet, with fallback to 655.957.
@@ -36,7 +38,29 @@ class CurrencyService
     }
 
     /**
-     * Convert an amount between currencies.
+     * Get the live conversion rate between EUR and BRL (Brazilian Real) from Internet, with fallback to 6.15.
+     */
+    public static function getEurToBrlRate(): float
+    {
+        return Cache::remember('currency_rate_eur_to_brl', 3600 * 6, function () {
+            try {
+                $response = Http::timeout(3)->get('https://open.er-api.com/v6/latest/EUR');
+                if ($response->successful()) {
+                    $rates = $response->json('rates');
+                    if (isset($rates['BRL']) && is_numeric($rates['BRL']) && (float) $rates['BRL'] > 0) {
+                        return (float) $rates['BRL'];
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Fallback to official parity
+            }
+
+            return self::OFFICIAL_EUR_TO_BRL;
+        });
+    }
+
+    /**
+     * Convert an amount between currencies (EUR, XOF, BRL).
      */
     public static function convert(float $amount, string $from, string $to): float
     {
@@ -44,20 +68,25 @@ class CurrencyService
         $to = strtoupper(trim($to));
 
         if ($from === $to) {
-            return $amount;
+            return $to === self::XOF ? round($amount, 0) : round($amount, 2);
         }
 
-        $rate = self::getEurToXofRate();
+        $xofRate = self::getEurToXofRate();
+        $brlRate = self::getEurToBrlRate();
 
-        if ($from === self::EUR && $to === self::XOF) {
-            return round($amount * $rate, 0); // FCFA has no decimal cents
-        }
+        // Step 1: Convert from source currency to EUR pivot
+        $inEur = match ($from) {
+            self::XOF => $amount / $xofRate,
+            self::BRL => $amount / $brlRate,
+            default   => $amount,
+        };
 
-        if ($from === self::XOF && $to === self::EUR) {
-            return round($amount / $rate, 2);
-        }
-
-        return $amount;
+        // Step 2: Convert from EUR pivot to target currency
+        return match ($to) {
+            self::XOF => round($inEur * $xofRate, 0), // FCFA has no decimal cents
+            self::BRL => round($inEur * $brlRate, 2),
+            default   => round($inEur, 2),
+        };
     }
 
     /**
@@ -71,22 +100,57 @@ class CurrencyService
             return number_format($amount, 0, ',', ' ') . ' FCFA';
         }
 
+        if ($currency === self::BRL) {
+            return 'R$ ' . number_format($amount, 2, ',', ' ');
+        }
+
         return number_format($amount, 2, ',', ' ') . ' €';
     }
 
     /**
-     * Format with both EUR and FCFA equivalents.
+     * Format an amount converted into the currently active global currency.
+     */
+    public static function formatInActiveCurrency(float $baseAmount, string $baseCurrency = self::EUR): string
+    {
+        $activeCurrency = self::getActiveCurrency();
+        $converted = self::convert($baseAmount, $baseCurrency, $activeCurrency);
+
+        return self::format($converted, $activeCurrency);
+    }
+
+    /**
+     * Format the equivalents in the other two currencies for subtitle / description displays.
+     */
+    public static function formatSubEquivalents(float $baseAmount, string $baseCurrency = self::EUR): string
+    {
+        $activeCurrency = self::getActiveCurrency();
+        $otherCurrencies = array_values(array_diff([self::EUR, self::XOF, self::BRL], [$activeCurrency]));
+
+        $parts = [];
+        foreach ($otherCurrencies as $other) {
+            $converted = self::convert($baseAmount, $baseCurrency, $other);
+            $parts[] = self::format($converted, $other);
+        }
+
+        return '≈ ' . implode(' • ', $parts);
+    }
+
+    /**
+     * Format with EUR, FCFA, and R$ (BRL) equivalents.
      */
     public static function formatDual(float $amount, string $baseCurrency = self::EUR): string
     {
         $baseCurrency = strtoupper(trim($baseCurrency));
-        if ($baseCurrency === self::XOF) {
-            $eur = self::convert($amount, self::XOF, self::EUR);
-            return number_format($amount, 0, ',', ' ') . ' FCFA (' . number_format($eur, 2, ',', ' ') . ' €)';
+        $primary = self::format($amount, $baseCurrency);
+
+        $others = array_values(array_diff([self::EUR, self::XOF, self::BRL], [$baseCurrency]));
+        $subParts = [];
+        foreach ($others as $other) {
+            $converted = self::convert($amount, $baseCurrency, $other);
+            $subParts[] = self::format($converted, $other);
         }
 
-        $xof = self::convert($amount, self::EUR, self::XOF);
-        return number_format($amount, 2, ',', ' ') . ' € (' . number_format($xof, 0, ',', ' ') . ' FCFA)';
+        return $primary . ' (' . implode(' • ', $subParts) . ')';
     }
 
     /**
@@ -95,35 +159,48 @@ class CurrencyService
     public static function getConversionHelper(?float $amount, ?string $currency): ?string
     {
         if (! $amount || $amount <= 0) {
-            return 'Saisissez un montant pour voir la conversion directe en temps réel.';
+            return 'Saisissez un montant pour voir la conversion directe en temps réel (€, FCFA, R$).';
         }
 
         $currency = $currency ? strtoupper(trim($currency)) : self::getActiveCurrency();
-        $rate = self::getEurToXofRate();
+        $rateXof = self::getEurToXofRate();
+        $rateBrl = self::getEurToBrlRate();
 
-        if ($currency === self::EUR) {
-            $converted = self::convert($amount, self::EUR, self::XOF);
-            $formatted = number_format($converted, 0, ',', ' ') . ' FCFA';
-            return "≈ {$formatted} (Conversion directe internet : 1 € = " . number_format($rate, 2, ',', ' ') . " FCFA)";
+        $others = array_values(array_diff([self::EUR, self::XOF, self::BRL], [$currency]));
+        $conversions = [];
+        foreach ($others as $other) {
+            $converted = self::convert($amount, $currency, $other);
+            $conversions[] = self::format($converted, $other);
         }
 
-        $converted = self::convert($amount, self::XOF, self::EUR);
-        $formatted = number_format($converted, 2, ',', ' ') . ' €';
-        return "≈ {$formatted} (Conversion directe internet : 1 € = " . number_format($rate, 2, ',', ' ') . " FCFA)";
+        $joined = implode(' • ', $conversions);
+        $rateInfo = "1 € = " . number_format($rateXof, 2, ',', ' ') . " FCFA = R$ " . number_format($rateBrl, 2, ',', ' ');
+
+        return "≈ {$joined} (Taux direct : {$rateInfo})";
     }
 
     /**
-     * Get active global currency.
+     * Get active global currency (EUR, XOF, or BRL).
      */
     public static function getActiveCurrency(): string
     {
         if (session()->has('active_currency')) {
-            return session('active_currency');
+            $sessionCurrency = strtoupper(trim((string) session('active_currency')));
+            if (in_array($sessionCurrency, [self::EUR, self::XOF, self::BRL], true)) {
+                return $sessionCurrency;
+            }
         }
 
-        $setting = AppSetting::where('setting_key', 'system.default_currency')->first();
-        if ($setting && in_array(trim($setting->value_json, '"\''), [self::EUR, self::XOF])) {
-            return trim($setting->value_json, '"\'');
+        try {
+            $setting = AppSetting::where('setting_key', 'system.default_currency')->first();
+            if ($setting) {
+                $val = strtoupper(trim((string) $setting->value_json, "\"' \t\n\r\0\x0B"));
+                if (in_array($val, [self::EUR, self::XOF, self::BRL], true)) {
+                    return $val;
+                }
+            }
+        } catch (\Throwable $e) {
+            // Fallback to EUR
         }
 
         return self::EUR;
@@ -135,7 +212,7 @@ class CurrencyService
     public static function setActiveCurrency(string $currency): void
     {
         $currency = strtoupper(trim($currency));
-        if (! in_array($currency, [self::EUR, self::XOF])) {
+        if (! in_array($currency, [self::EUR, self::XOF, self::BRL], true)) {
             $currency = self::EUR;
         }
 
@@ -144,11 +221,10 @@ class CurrencyService
         AppSetting::updateOrCreate(
             ['setting_key' => 'system.default_currency'],
             [
-                'value_json' => json_encode($currency),
-                'description' => 'Devise active globale du système (EUR ou XOF/FCFA)',
-                'updated_at' => now(),
+                'value_json'  => json_encode($currency),
+                'description' => 'Devise active globale du système (EUR, XOF/FCFA ou BRL/R$)',
+                'updated_at'  => now(),
             ]
         );
     }
 }
-

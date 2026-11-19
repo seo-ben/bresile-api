@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\VisaApplications\Tables;
 
+use App\Filament\Resources\OfficialDocuments\OfficialDocumentResource;
 use App\Models\FileModel;
 use App\Models\VisaApplication;
 use App\Services\VisaAndRefundService;
@@ -9,12 +10,16 @@ use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 
 class VisaApplicationsTable
 {
@@ -86,6 +91,13 @@ class VisaApplicationsTable
                         default => 'gray',
                     }),
 
+                TextColumn::make('documents_count')
+                    ->label('Documents Envoyés')
+                    ->counts('documents')
+                    ->badge()
+                    ->formatStateUsing(fn ($state): string => ((int) $state) > 0 ? "{$state} envoyé(s)" : 'Aucun')
+                    ->color(fn ($state): string => ((int) $state) > 0 ? 'success' : 'gray'),
+
                 TextColumn::make('outcome_reported_at')
                     ->label('Date Décision')
                     ->dateTime('d/m/Y')
@@ -103,35 +115,83 @@ class VisaApplicationsTable
             ->recordAction(EditAction::class)
             ->recordActions([
                 Action::make('issue_document')
-                    ->label('Délivrer Attestation')
-                    ->icon('heroicon-m-document-check')
+                    ->label('Envoyer Document')
+                    ->icon('heroicon-m-document-arrow-up')
                     ->color('primary')
+                    ->modalHeading('Envoyer un Document Officiel à l’Étudiant')
+                    ->modalSubmitActionLabel('Envoyer à l’étudiant')
+                    ->modalWidth('2xl')
                     ->form([
+                        Placeholder::make('sent_documents_history')
+                            ->label('Historique des documents déjà envoyés à cet étudiant')
+                            ->content(function (VisaApplication $record): HtmlString {
+                                $docs = $record->documents()->with('file')->orderByDesc('issued_at')->orderByDesc('id')->get();
+                                if ($docs->isEmpty()) {
+                                    return new HtmlString('<div style="padding:10px 12px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;font-size:13px;color:#64748b;">Aucun document officiel n’a encore été envoyé pour ce dossier.</div>');
+                                }
+
+                                $rows = '';
+                                foreach ($docs as $doc) {
+                                    $title = e($doc->title);
+                                    $date = $doc->issued_at ? $doc->issued_at->format('d/m/Y H:i') : '—';
+                                    $url = $doc->file?->storage_path ? asset('storage/' . ltrim($doc->file->storage_path, '/')) : null;
+                                    $linkHtml = $url
+                                        ? '<a href="' . e($url) . '" target="_blank" rel="noopener" style="color:#059669;font-weight:700;text-decoration:underline;white-space:nowrap;">Ouvrir / Télécharger</a>'
+                                        : '<span style="color:#94a3b8;">Fichier indisponible</span>';
+
+                                    $rows .= '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;border-radius:8px;background:#ffffff;border:1px solid #e2e8f0;">'
+                                        . '<div><div style="font-weight:700;color:#0f172a;font-size:13px;">' . $title . '</div>'
+                                        . '<div style="font-size:11px;color:#64748b;">Envoyé le ' . $date . '</div></div>'
+                                        . $linkHtml
+                                        . '</div>';
+                                }
+
+                                return new HtmlString('<div style="display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:10px;background:#f1f5f9;border:1px solid #cbd5e1;max-height:190px;overflow-y:auto;">' . $rows . '</div>');
+                            }),
+                        Select::make('document_type')
+                            ->label('Type de document officiel')
+                            ->options([
+                                'attestation' => 'Attestation d’Inscription Officielle',
+                                'contrat'     => 'Contrat & Garantie 85% de Remboursement',
+                                'fiche'       => 'Fiche de Candidature Officielle',
+                                'guide'       => 'Guide d’Installation & Visa au Brésil',
+                                'autre'       => 'Autre document officiel personnalisé',
+                            ])
+                            ->default('attestation')
+                            ->live()
+                            ->afterStateUpdated(function ($state, $set) {
+                                $defaults = [
+                                    'attestation' => 'Attestation d’Inscription Officielle',
+                                    'contrat'     => 'Contrat & Garantie 85% de Remboursement',
+                                    'fiche'       => 'Fiche de Candidature Officielle',
+                                    'guide'       => 'Guide d’Installation & Visa au Brésil',
+                                ];
+                                if (isset($defaults[$state])) {
+                                    $set('title', $defaults[$state]);
+                                }
+                            }),
                         TextInput::make('title')
-                            ->label('Intitulé de l’attestation officielle')
-                            ->default('Certificat d’Inscription Officiel pour Visa VITEM IV')
+                            ->label('Intitulé du document officiel')
+                            ->default('Attestation d’Inscription Officielle')
+                            ->required(),
+                        FileUpload::make('uploaded_file_path')
+                            ->label('Fichier Officiel (PDF, JPG, PNG — max 15 Mo)')
+                            ->disk('public')
+                            ->directory('official_documents')
+                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
+                            ->maxSize(15360)
                             ->required(),
                     ])
                     ->action(function (VisaApplication $record, array $data) {
-                        $file = FileModel::create([
-                            'uploaded_by'     => (int) auth()->id(),
-                            'storage_disk'    => 'private',
-                            'storage_path'    => 'visa_documents/' . $record->id . '_attestation.pdf',
-                            'original_name'   => $data['title'] . '.pdf',
-                            'mime_type'       => 'application/pdf',
-                            'size_bytes'      => 1024,
-                        ]);
-
-                        app(VisaAndRefundService::class)->issueOfficialDocument(
+                        OfficialDocumentResource::createDocumentFromUpload(
                             visaApplicationId: $record->id,
-                            title: $data['title'],
-                            fileId: $file->id,
-                            issuedByAdminId: (int) auth()->id()
+                            title: (string) $data['title'],
+                            storagePath: (string) $data['uploaded_file_path']
                         );
 
                         Notification::make()
-                            ->title('Attestation délivrée avec succès')
-                            ->body('Le document consulaire officiel a été généré et rattaché au dossier.')
+                            ->title('Document envoyé avec succès')
+                            ->body('Le document officiel est désormais téléchargeable dans le portail de l’étudiant.')
                             ->success()
                             ->send();
                     }),

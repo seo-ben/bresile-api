@@ -23,10 +23,33 @@ class AppSettingsTable
 
                 TextColumn::make('value_json')
                     ->label('Valeur')
-                    ->limit(50)
-                    ->fontFamily('mono')
+                    ->formatStateUsing(function ($state, $record): string {
+                        $key = $record->setting_key ?? '';
+                        if ($key === 'site.branding') {
+                            $d = is_array($state) ? $state : (json_decode((string) $state, true) ?: []);
+                            $name = $d['site_name'] ?? 'Brasil·É';
+                            $email = $d['contact_email'] ?? '';
+                            $phone = $d['contact_phone'] ?? '';
+                            return trim("{$name} • {$email} • {$phone}", ' •');
+                        }
+                        if ($key === 'system.default_currency') {
+                            return match (strtoupper(trim((string) $state, "\"' "))) {
+                                'XOF' => 'FCFA (XOF)',
+                                'BRL' => 'Real Brésilien (R$)',
+                                default => 'Euro (€)',
+                            };
+                        }
+                        if ($key === 'bank_transfer.confirmation_delay_hours') {
+                            return trim((string) $state, "\"' ") . ' heures';
+                        }
+                        if ($key === 'registration.require_terms_acceptance') {
+                            return strtolower(trim((string) $state, "\"' ")) === 'true' ? 'Activé (Oui)' : 'Désactivé (Non)';
+                        }
+                        return (string) $state;
+                    })
+                    ->limit(60)
                     ->badge()
-                    ->color('gray'),
+                    ->color('primary'),
 
                 TextColumn::make('description')
                     ->label('Description')
