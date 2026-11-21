@@ -28,6 +28,7 @@ class RegisterRequest extends FormRequest
             'level_choice'               => ['nullable', 'string', 'max:100'],
             'study_mode'                 => ['nullable', 'string', 'max:100'],
             'study_purpose'              => ['nullable', 'string', 'max:120'],
+            'rhythm'                     => ['nullable', 'string', 'in:day,evening'],
             'brazil_city_id'             => ['nullable'],
             'city_choice'                => ['nullable', 'string', 'max:100'],
             'target_university'          => ['nullable', 'string', 'max:190'],

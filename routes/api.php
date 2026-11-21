@@ -28,6 +28,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/cities', [AcademicController::class, 'getCities']);
         Route::get('/universities', [AcademicController::class, 'getUniversities']);
         Route::get('/refund-policies', [AcademicController::class, 'getRefundPolicies']);
+        Route::get('/enrollment-steps', [AcademicController::class, 'getEnrollmentSteps']);
         Route::get('/cms/{key}', [AcademicController::class, 'getCmsContent']);
     });
 
@@ -39,6 +40,9 @@ Route::prefix('v1')->group(function () {
 
     // Identité du site (Logo, nom, slogan multilingue, email & téléphone)
     Route::get('/site/settings', [AcademicController::class, 'getSiteSettings']);
+
+    // Vérification publique d'une attestation d'inscription sécurisée (QR Code / Code unique)
+    Route::get('/certificates/verify/{code}', [AcademicController::class, 'verifyCertificate']);
 
 
     // ==========================================

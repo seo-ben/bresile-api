@@ -53,7 +53,8 @@ class EditAppSetting extends EditRecord
         $key = $this->record->setting_key ?? ($data['setting_key'] ?? '');
 
         if ($key === 'site.branding') {
-            $payload = [
+            $existing = SiteSettingsService::get();
+            $payload = array_merge($existing, [
                 'site_name'       => $data['branding_site_name'] ?? 'Brasil·É',
                 'logo_path'       => $data['branding_logo_path'] ?: null,
                 'tagline_fr'      => $data['branding_tagline_fr'] ?? '',
@@ -63,7 +64,8 @@ class EditAppSetting extends EditRecord
                 'contact_phone'   => $data['branding_contact_phone'] ?? '',
                 'contact_address' => $data['branding_contact_address'] ?? '',
                 'website_url'     => $data['branding_website_url'] ?? '',
-            ];
+            ]);
+            unset($payload['logo_url']);
             $data['value_json'] = json_encode($payload, JSON_UNESCAPED_UNICODE);
         } elseif ($key === 'system.default_currency') {
             $curr = strtoupper((string) ($data['currency_value'] ?? 'EUR'));

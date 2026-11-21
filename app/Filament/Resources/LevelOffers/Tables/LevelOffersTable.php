@@ -43,11 +43,27 @@ class LevelOffersTable
                     ->color('info')
                     ->sortable(),
                 TextColumn::make('base_price')
-                    ->label('Frais de Scolarité')
+                    ->label('Scolarité (Jour)')
                     ->state(fn ($record): string => \App\Services\CurrencyService::formatInActiveCurrency((float) $record->base_price, $record->currency ?? 'EUR'))
-                    ->description(fn ($record): string => \App\Services\CurrencyService::formatSubEquivalents((float) $record->base_price, $record->currency ?? 'EUR'))
+                    ->description(fn ($record): string => $record->day_schedule_label ? ($record->day_schedule_label . ' · ' . \App\Services\CurrencyService::formatSubEquivalents((float) $record->base_price, $record->currency ?? 'EUR')) : \App\Services\CurrencyService::formatSubEquivalents((float) $record->base_price, $record->currency ?? 'EUR'))
                     ->weight('bold')
                     ->sortable(),
+                TextColumn::make('evening_base_price')
+                    ->label('Scolarité (Soir)')
+                    ->state(function ($record): string {
+                        if (! $record->evening_enabled || ! $record->evening_base_price) {
+                            return '—';
+                        }
+                        return \App\Services\CurrencyService::formatInActiveCurrency((float) $record->evening_base_price, $record->currency ?? 'EUR');
+                    })
+                    ->description(function ($record): ?string {
+                        if (! $record->evening_enabled || ! $record->evening_base_price) {
+                            return null;
+                        }
+                        return ($record->evening_schedule_label ?: '18h30 – 21h30');
+                    })
+                    ->badge(fn ($record): bool => (bool) ($record->evening_enabled && $record->evening_base_price))
+                    ->color('warning'),
                 TextColumn::make('installments_summary')
                     ->label('3 Tranches (Admin)')
                     ->state(function ($record): string {

@@ -32,15 +32,26 @@ class UserResource extends JsonResource
                         ?? LevelOffer::with('paymentPlans')->where('level_id', $enrollment->level_id)->first()
                         ?? LevelOffer::with('paymentPlans')->first();
 
-                    $basePrice = (float) ($offer?->base_price ?? 500.00);
+                    $rhythm = ($enrollment->rhythm === 'evening') ? 'evening' : 'day';
+                    $isEveningModulated = $rhythm === 'evening'
+                        && $offer
+                        && (bool) $offer->evening_enabled
+                        && (float) ($offer->evening_base_price ?? 0) > 0;
+
+                    $rawDayPrice = (float) ($offer?->base_price ?? 500.00);
+                    $rawEveningPrice = ($offer && (bool) $offer->evening_enabled && (float) ($offer->evening_base_price ?? 0) > 0)
+                        ? (float) $offer->evening_base_price
+                        : null;
+
+                    $basePrice = $isEveningModulated ? (float) $offer->evening_base_price : $rawDayPrice;
                     $rawServiceFee = (float) ($offer?->service_fee ?? 150.00);
                     $offerCurrency = $offer?->currency ?? 'EUR';
                     $activeCurrency = \App\Services\CurrencyService::getActiveCurrency();
                     $currency = $activeCurrency ?: $offerCurrency;
 
                     // Vérifier si l'admin a défini des plans spécifiques sur l'offre
-                    $cashPlan = $offer?->paymentPlans?->firstWhere('installments_count', 1);
-                    $splitPlan = $offer?->paymentPlans?->firstWhere('installments_count', '>', 1);
+                    $cashPlan = ! $isEveningModulated ? $offer?->paymentPlans?->firstWhere('installments_count', 1) : null;
+                    $splitPlan = ! $isEveningModulated ? $offer?->paymentPlans?->firstWhere('installments_count', '>', 1) : null;
 
                     $rawTotalPrice = $cashPlan && (float) $cashPlan->total_amount > 0
                         ? (float) $cashPlan->total_amount
@@ -53,6 +64,10 @@ class UserResource extends JsonResource
                     $serviceFee = \App\Services\CurrencyService::convert($rawServiceFee, $offerCurrency, $currency);
                     $totalPrice = \App\Services\CurrencyService::convert($rawTotalPrice, $offerCurrency, $currency);
                     $splitTotal = \App\Services\CurrencyService::convert($rawSplitTotal, $offerCurrency, $currency);
+                    $dayPrice = \App\Services\CurrencyService::convert($rawDayPrice, $offerCurrency, $currency);
+                    $eveningPrice = $rawEveningPrice !== null
+                        ? \App\Services\CurrencyService::convert($rawEveningPrice, $offerCurrency, $currency)
+                        : null;
 
                     // Paiements confirmés sur ce dossier (séparés : Frais de Service vs Frais de Scolarité)
                     $confirmedPayments = \App\Models\Payment::where('enrollment_id', $enrollment->id)
@@ -101,17 +116,21 @@ class UserResource extends JsonResource
                         })->values();
                         $splitTotal = round((float) $installments->sum('amount'), 2);
                     } else {
-                        // Utiliser les 3 montants de tranches définis explicitement par l'admin sur l'offre
+                        // Utiliser les 3 montants de tranches définis explicitement par l'admin sur l'offre (Jour ou Soir)
+                        $rawInst1 = $isEveningModulated ? ($offer->evening_installment_1_amount ?? 0) : ($offer->installment_1_amount ?? 0);
+                        $rawInst2 = $isEveningModulated ? ($offer->evening_installment_2_amount ?? 0) : ($offer->installment_2_amount ?? 0);
+                        $rawInst3 = $isEveningModulated ? ($offer->evening_installment_3_amount ?? 0) : ($offer->installment_3_amount ?? 0);
+
                         $hasAdminInstallments = $offer && (
-                            (float) ($offer->installment_1_amount ?? 0) > 0 ||
-                            (float) ($offer->installment_2_amount ?? 0) > 0 ||
-                            (float) ($offer->installment_3_amount ?? 0) > 0
+                            (float) $rawInst1 > 0 ||
+                            (float) $rawInst2 > 0 ||
+                            (float) $rawInst3 > 0
                         );
 
                         if ($hasAdminInstallments) {
-                            $inst1 = \App\Services\CurrencyService::convert((float) ($offer->installment_1_amount ?? 0), $offerCurrency, $currency);
-                            $inst2 = \App\Services\CurrencyService::convert((float) ($offer->installment_2_amount ?? 0), $offerCurrency, $currency);
-                            $inst3 = \App\Services\CurrencyService::convert((float) ($offer->installment_3_amount ?? 0), $offerCurrency, $currency);
+                            $inst1 = \App\Services\CurrencyService::convert((float) $rawInst1, $offerCurrency, $currency);
+                            $inst2 = \App\Services\CurrencyService::convert((float) $rawInst2, $offerCurrency, $currency);
+                            $inst3 = \App\Services\CurrencyService::convert((float) $rawInst3, $offerCurrency, $currency);
                             $splitTotal = round($inst1 + $inst2 + $inst3, 2);
                         } else {
                             // Valeur de secours uniquement si l'admin n'a pas encore renseigné les 3 tranches
@@ -170,6 +189,17 @@ class UserResource extends JsonResource
                         ];
                     })->values();
 
+                    // Garantir un code d'attestation sécurisée dès qu'un paiement est confirmé
+                    if (($totalPaid > 0 || $serviceFeePaidAmount > 0 || $enrollment->status === 'active') && ! $enrollment->certificate_code) {
+                        $generatedCode = 'BE-CERT-' . date('Y') . '-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
+                        $enrollment->update([
+                            'certificate_code'      => $generatedCode,
+                            'certificate_issued_at' => now(),
+                        ]);
+                        $enrollment->certificate_code = $generatedCode;
+                        $enrollment->certificate_issued_at = now();
+                    }
+
                     return [
                         'id'                              => $enrollment->id,
                         'level_id'                        => $enrollment->level_id,
@@ -179,6 +209,8 @@ class UserResource extends JsonResource
                         'visa_type'                       => $enrollment->visa_type,
                         'study_purpose'                   => $enrollment->study_purpose,
                         'previous_level_certificate_url'  => $enrollment->previous_level_certificate_path ? asset('storage/' . $enrollment->previous_level_certificate_path) : null,
+                        'certificate_code'                => $enrollment->certificate_code,
+                        'certificate_issued_at'           => $enrollment->certificate_issued_at ? date('d/m/Y', strtotime((string) $enrollment->certificate_issued_at)) : null,
                         'service_fee'                     => $serviceFee,
                         'service_fee_paid'                => $serviceFeePaid,
                         'service_fee_paid_amount'         => $serviceFeePaidAmount,
@@ -194,7 +226,12 @@ class UserResource extends JsonResource
                         'city_state'                      => $enrollment->city?->state_code ?? 'DF',
                         'status'                          => $enrollment->status ?? 'pending_payment',
                         'status_reason'                   => $translator->translate($enrollment->status_reason ?? 'Inscription enregistrée', $lang),
-                        'rhythm'                          => $enrollment->rhythm ?? 'day',
+                        'rhythm'                          => $rhythm,
+                        'evening_enabled'                 => (bool) ($offer?->evening_enabled ?? false),
+                        'day_schedule_label'              => $offer?->day_schedule_label ?: '09h00 – 13h00',
+                        'evening_schedule_label'          => $offer?->evening_schedule_label ?: '18h30 – 21h30',
+                        'day_price'                       => $dayPrice,
+                        'evening_price'                   => $eveningPrice,
                         'enrolled_at'                     => $enrollment->enrolled_at ? ($enrollment->enrolled_at instanceof \DateTimeInterface ? $enrollment->enrolled_at->format('d/m/Y') : date('d/m/Y', strtotime($enrollment->enrolled_at))) : null,
                         'installments'                    => $installments,
                         'payments'                        => $paymentsList,

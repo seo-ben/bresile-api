@@ -184,7 +184,7 @@ class AuthService
                     'study_purpose'                   => $dto->studyPurpose,
                     'visa_type'                       => $visaType,
                     'previous_level_certificate_path' => $dto->previousLevelCertificatePath,
-                    'rhythm'                          => 'day',
+                    'rhythm'                          => $dto->rhythm === 'evening' ? 'evening' : 'day',
                     'status'                          => 'pending_payment',
                     'status_reason'                   => 'Nouvelle inscription enregistrée via la plateforme web Brasil·É',
                     'enrolled_at'                     => now(),

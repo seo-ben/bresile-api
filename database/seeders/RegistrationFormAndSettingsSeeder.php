@@ -350,5 +350,41 @@ class RegistrationFormAndSettingsSeeder extends Seeder
                 ]));
             }
         }
+
+        // 7. Page "À Propos" (cms_contents, clé: about_us) — éditable par l'admin dans Contenus du Site Web
+        if (! DB::table('cms_contents')->where('content_key', 'about_us')->where('locale', 'fr')->exists()) {
+            DB::table('cms_contents')->insert([
+                'content_key'  => 'about_us',
+                'locale'       => 'fr',
+                'title'        => 'À propos de Brasil·É — Notre mission et nos engagements',
+                'body'         => <<<'HTML'
+<h2>Pourquoi nous avons créé ce projet</h2>
+<p><strong>Brasil·É</strong> est né d’un constat simple : de nombreux étudiants francophones et internationaux rêvent d’apprendre le portugais brésilien et de poursuivre leurs études ou projets professionnels au Brésil, mais se heurtent à des démarches consulaires complexes, à un manque de transparence financière et à l’absence d’un encadrement fiable sur place.</p>
+<p>Notre mission est d’offrir une passerelle sérieuse, structurée et humaine entre votre pays d’origine et le Brésil, du premier cours de portugais jusqu’à votre installation et votre intégration universitaire ou professionnelle.</p>
+
+<h2>Une formation reconnue et un cadre officiel</h2>
+<ul>
+  <li><strong>Cursus progressif CECRL (A1, A2, B1, B2)</strong> : en présentiel au Brésil (Visa VITEM IV ou Visa Visiteur) ou 100 % en ligne depuis votre pays.</li>
+  <li><strong>Préparation officielle au diplôme CELPE-Bras</strong> : le seul certificat de maîtrise du portugais brésilien officiellement reconnu par le Ministère de l’Éducation du Brésil (MEC / INEP) et exigé par les grandes universités fédérales.</li>
+  <li><strong>Passerelle vers les meilleures universités brésiliennes</strong> : UnB Brasília, USP São Paulo, UNICAMP, UFRJ, UFMG, UFRGS.</li>
+</ul>
+
+<h2>Nos garanties pour rassurer les étudiants et leurs familles</h2>
+<ul>
+  <li><strong>Garantie contractuelle de remboursement 85 %</strong> : en cas de refus officiel de visa par le consulat, 85 % des frais de scolarité réglés sont restitués par virement sous 14 jours ouvrés.</li>
+  <li><strong>Transparence totale des paiements</strong> : paiement comptant ou échelonné en 3 tranches, avec reçus officiels téléchargeables instantanément dans votre espace étudiant.</li>
+  <li><strong>Accompagnement de bout en bout</strong> : attestations officielles conformes pour le consulat, suivi du dossier visa en ligne, accueil et aide à l’installation au Brésil (logement, CPF, enregistrement Police Fédérale).</li>
+</ul>
+
+<h2>Une présence multi-campus au Brésil</h2>
+<p>Nos équipes pédagogiques et administratives vous accompagnent dans les grands pôles universitaires brésiliens : <strong>Brasília (DF)</strong>, <strong>São Paulo (SP)</strong>, <strong>Rio de Janeiro (RJ)</strong>, <strong>Belo Horizonte (MG)</strong>, <strong>Porto Alegre (RS)</strong>, ainsi que sur notre <strong>Campus en Ligne</strong>.</p>
+HTML,
+                'is_published' => 1,
+                'version'      => 1,
+                'updated_by'   => 1,
+                'created_at'   => now(),
+                'updated_at'   => now(),
+            ]);
+        }
     }
 }

@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             PartnerUniversitySeeder::class,
             EmailTemplatesSeeder::class,
             RegistrationFormAndSettingsSeeder::class,
+            EnrollmentStepSeeder::class,
         ]);
     }
 }

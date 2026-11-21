@@ -92,6 +92,61 @@ class LevelOfferForm
                                 ->required(),
                         ]),
 
+                        Section::make('Créneaux Horaires & Tarification Modulée (Cours du Soir)')
+                            ->description('Activez les cours du soir (en ligne ou présentiel) avec un tarif et des tranches modulés selon l’horaire.')
+                            ->schema([
+                                Grid::make(3)->schema([
+                                    Toggle::make('evening_enabled')
+                                        ->label('Proposer les Cours du soir (tarif modulé)')
+                                        ->default(false)
+                                        ->live(),
+
+                                    TextInput::make('day_schedule_label')
+                                        ->label('Horaire — Cours du jour')
+                                        ->placeholder('Ex: 09h00 – 13h00')
+                                        ->maxLength(120),
+
+                                    TextInput::make('evening_schedule_label')
+                                        ->label('Horaire — Cours du soir')
+                                        ->placeholder('Ex: 18h30 – 21h30')
+                                        ->maxLength(120),
+                                ]),
+
+                                Grid::make(4)->schema([
+                                    TextInput::make('evening_base_price')
+                                        ->label('Scolarité Cours du soir (Comptant)')
+                                        ->numeric()
+                                        ->placeholder('Ex: 410')
+                                        ->live(onBlur: true)
+                                        ->helperText(fn ($get) => $get('evening_base_price') ? CurrencyService::getConversionHelper((float) $get('evening_base_price'), $get('currency')) : 'Tarif modulé pour le créneau du soir')
+                                        ->visible(fn ($get) => (bool) $get('evening_enabled')),
+
+                                    TextInput::make('evening_installment_1_amount')
+                                        ->label('Soir — Tranche 1')
+                                        ->numeric()
+                                        ->placeholder('Ex: 150')
+                                        ->live(onBlur: true)
+                                        ->helperText(fn ($get) => $get('evening_installment_1_amount') ? CurrencyService::getConversionHelper((float) $get('evening_installment_1_amount'), $get('currency')) : '')
+                                        ->visible(fn ($get) => (bool) $get('evening_enabled')),
+
+                                    TextInput::make('evening_installment_2_amount')
+                                        ->label('Soir — Tranche 2')
+                                        ->numeric()
+                                        ->placeholder('Ex: 130')
+                                        ->live(onBlur: true)
+                                        ->helperText(fn ($get) => $get('evening_installment_2_amount') ? CurrencyService::getConversionHelper((float) $get('evening_installment_2_amount'), $get('currency')) : '')
+                                        ->visible(fn ($get) => (bool) $get('evening_enabled')),
+
+                                    TextInput::make('evening_installment_3_amount')
+                                        ->label('Soir — Tranche 3')
+                                        ->numeric()
+                                        ->placeholder('Ex: 130')
+                                        ->live(onBlur: true)
+                                        ->helperText(fn ($get) => $get('evening_installment_3_amount') ? CurrencyService::getConversionHelper((float) $get('evening_installment_3_amount'), $get('currency')) : '')
+                                        ->visible(fn ($get) => (bool) $get('evening_enabled')),
+                                ]),
+                            ]),
+
                         Grid::make(2)->schema([
                             Select::make('prerequisite_level_id')
                                 ->label('Niveau Prérequis Requis')

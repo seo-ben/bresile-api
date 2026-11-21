@@ -28,10 +28,10 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
-            ->brandName('Brasil·É')
+            ->brandName(fn () => \App\Services\SiteSettingsService::get()['site_name'] ?: 'Brasil·É')
             ->brandLogo(fn () => view('filament.components.brand-logo'))
             ->brandLogoHeight('3.2rem')
-            ->favicon(fn () => asset('favicon.png'))
+            ->favicon(fn () => \App\Services\SiteSettingsService::getLogoUrl())
             ->sidebarCollapsibleOnDesktop()
             ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
             ->userMenuItems([

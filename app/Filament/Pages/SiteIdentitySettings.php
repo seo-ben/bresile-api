@@ -37,9 +37,13 @@ class SiteIdentitySettings extends Page implements HasForms
             'tagline_en'      => $settings['tagline_en'],
             'tagline_pt'      => $settings['tagline_pt'],
             'contact_email'   => $settings['contact_email'],
-            'contact_phone'   => $settings['contact_phone'],
-            'contact_address' => $settings['contact_address'],
-            'website_url'     => $settings['website_url'],
+            'contact_phone'       => $settings['contact_phone'],
+            'contact_address'     => $settings['contact_address'],
+            'website_url'         => $settings['website_url'],
+            'cert_director_name'  => $settings['cert_director_name'],
+            'cert_director_title' => $settings['cert_director_title'],
+            'cert_weekly_hours'   => $settings['cert_weekly_hours'],
+            'cert_legal_footer'   => $settings['cert_legal_footer'],
         ]);
     }
 
@@ -62,8 +66,12 @@ class SiteIdentitySettings extends Page implements HasForms
                                 ->label('Logo du Site (PNG / JPG / SVG / WEBP)')
                                 ->disk('public')
                                 ->directory('site_branding')
+                                ->visibility('public')
                                 ->image()
-                                ->imagePreviewHeight('80')
+                                ->fetchFileInformation(false)
+                                ->previewable(false)
+                                ->openable()
+                                ->downloadable()
                                 ->helperText('Téléversez votre logo officiel. Il remplacera automatiquement le logo partout sur le site et sur les reçus.'),
                         ]),
                     ]),
@@ -116,6 +124,28 @@ class SiteIdentitySettings extends Page implements HasForms
                                 ->placeholder('www.brasil-e.com'),
                         ]),
                     ]),
+
+                Section::make('Personnalisation de l’Attestation Officielle d’Inscription (QR Code)')
+                    ->description('Ces informations apparaissent automatiquement sur les attestations sécurisées générées après validation du paiement.')
+                    ->schema([
+                        Grid::make(2)->schema([
+                            TextInput::make('cert_director_name')
+                                ->label('Nom du Signataire / Directeur')
+                                ->placeholder('Direction Pédagogique Brasil·É'),
+
+                            TextInput::make('cert_director_title')
+                                ->label('Fonction du Signataire')
+                                ->placeholder('Direction des Admissions & Mobilité Internationale'),
+                        ]),
+
+                        TextInput::make('cert_weekly_hours')
+                            ->label('Charge horaire officielle mentionnée sur l’attestation')
+                            ->placeholder('20 heures / semaine (Minimum consulaire VITEM IV respecté)'),
+
+                        TextInput::make('cert_legal_footer')
+                            ->label('Mention légale de pied d’attestation')
+                            ->placeholder('Document officiel sécurisé et vérifiable par QR Code.'),
+                    ]),
             ]);
     }
 
@@ -131,8 +161,12 @@ class SiteIdentitySettings extends Page implements HasForms
             'tagline_pt'      => $state['tagline_pt'] ?? '',
             'contact_email'   => $state['contact_email'] ?? '',
             'contact_phone'   => $state['contact_phone'] ?? '',
-            'contact_address' => $state['contact_address'] ?? '',
-            'website_url'     => $state['website_url'] ?? '',
+            'contact_address'     => $state['contact_address'] ?? '',
+            'website_url'         => $state['website_url'] ?? '',
+            'cert_director_name'  => $state['cert_director_name'] ?? '',
+            'cert_director_title' => $state['cert_director_title'] ?? '',
+            'cert_weekly_hours'   => $state['cert_weekly_hours'] ?? '',
+            'cert_legal_footer'   => $state['cert_legal_footer'] ?? '',
         ]);
 
         Notification::make()

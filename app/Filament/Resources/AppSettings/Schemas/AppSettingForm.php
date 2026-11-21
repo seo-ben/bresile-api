@@ -47,8 +47,12 @@ class AppSettingForm
                                 ->label('Logo du Site (PNG / JPG / SVG / WEBP)')
                                 ->disk('public')
                                 ->directory('site_branding')
+                                ->visibility('public')
                                 ->image()
-                                ->imagePreviewHeight('80'),
+                                ->fetchFileInformation(false)
+                                ->previewable(false)
+                                ->openable()
+                                ->downloadable(),
                         ]),
 
                         TextInput::make('branding_tagline_fr')

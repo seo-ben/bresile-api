@@ -8,6 +8,7 @@ use App\Models\EnrollmentInstallment;
 use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class PaymentService
 {
@@ -144,6 +145,14 @@ class PaymentService
                 reason: 'Paiement validé avec succès',
                 actorId: $payment->student_id
             );
+        }
+
+        // Génération automatique du code de vérification sécurisé pour l'attestation d'inscription
+        if (empty($enrollment->certificate_code)) {
+            $enrollment->update([
+                'certificate_code'      => 'BE-CERT-' . now()->format('Y') . '-' . strtoupper(Str::random(8)),
+                'certificate_issued_at' => now(),
+            ]);
         }
     }
 }

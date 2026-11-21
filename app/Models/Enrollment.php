@@ -20,9 +20,10 @@ class Enrollment extends Model
     {
         return [
             'total_amount' => 'decimal:2',
-            'enrolled_at'  => 'datetime',
-            'started_at'   => 'datetime',
-            'completed_at' => 'datetime',
+            'enrolled_at'           => 'datetime',
+            'started_at'            => 'datetime',
+            'completed_at'          => 'datetime',
+            'certificate_issued_at' => 'datetime',
         ];
     }
 

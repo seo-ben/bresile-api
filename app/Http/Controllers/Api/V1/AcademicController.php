@@ -41,6 +41,9 @@ class AcademicController extends Controller
                 $sourceCurr = $offer->currency ?: 'EUR';
                 $offer->service_fee = \App\Services\CurrencyService::convert((float) ($offer->service_fee ?? 150), $sourceCurr, $activeCurrency);
                 $offer->base_price = \App\Services\CurrencyService::convert((float) $offer->base_price, $sourceCurr, $activeCurrency);
+                if ($offer->evening_base_price !== null) {
+                    $offer->evening_base_price = \App\Services\CurrencyService::convert((float) $offer->evening_base_price, $sourceCurr, $activeCurrency);
+                }
                 if ($offer->installment_1_amount !== null) {
                     $offer->installment_1_amount = \App\Services\CurrencyService::convert((float) $offer->installment_1_amount, $sourceCurr, $activeCurrency);
                 }
@@ -49,6 +52,15 @@ class AcademicController extends Controller
                 }
                 if ($offer->installment_3_amount !== null) {
                     $offer->installment_3_amount = \App\Services\CurrencyService::convert((float) $offer->installment_3_amount, $sourceCurr, $activeCurrency);
+                }
+                if ($offer->evening_installment_1_amount !== null) {
+                    $offer->evening_installment_1_amount = \App\Services\CurrencyService::convert((float) $offer->evening_installment_1_amount, $sourceCurr, $activeCurrency);
+                }
+                if ($offer->evening_installment_2_amount !== null) {
+                    $offer->evening_installment_2_amount = \App\Services\CurrencyService::convert((float) $offer->evening_installment_2_amount, $sourceCurr, $activeCurrency);
+                }
+                if ($offer->evening_installment_3_amount !== null) {
+                    $offer->evening_installment_3_amount = \App\Services\CurrencyService::convert((float) $offer->evening_installment_3_amount, $sourceCurr, $activeCurrency);
                 }
                 $offer->currency = $activeCurrency;
                 $offer->paymentPlans?->each(function ($plan) use ($lang, $sourceCurr, $activeCurrency) {
@@ -140,9 +152,9 @@ class AcademicController extends Controller
                 ->first();
 
             if ($content) {
-                $content->title        = $this->translator->translate($content->title, $lang);
-                $content->body_content = $this->translator->translate($content->body_content, $lang);
-                $content->locale       = $lang;
+                $content->title = $this->translator->translate($content->title, $lang);
+                $content->body  = $this->translator->translate($content->body, $lang);
+                $content->locale = $lang;
             }
         }
 
@@ -206,6 +218,99 @@ class AcademicController extends Controller
         return $this->successResponse(
             data: \App\Services\SiteSettingsService::toPublicArray($lang),
             message: 'Paramètres du site récupérés avec succès.'
+        );
+    }
+
+    public function getEnrollmentSteps(Request $request): JsonResponse
+    {
+        $lang = $this->translator->resolveLocale($request);
+
+        \App\Models\EnrollmentStep::ensureTableExists();
+        if (\App\Models\EnrollmentStep::count() === 0) {
+            (new \Database\Seeders\EnrollmentStepSeeder())->run();
+        }
+
+        $steps = \App\Models\EnrollmentStep::where('is_active', true)
+            ->orderBy('position')
+            ->orderBy('id')
+            ->get()
+            ->map(function ($step) use ($lang) {
+                $branches = is_array($step->branches_json) ? $step->branches_json : [];
+                if ($lang !== 'fr') {
+                    $branches = array_map(function ($b) use ($lang) {
+                        return [
+                            'label' => $this->translator->translate((string) ($b['label'] ?? ''), $lang),
+                            'tone'  => $b['tone'] ?? 'emerald',
+                        ];
+                    }, $branches);
+                }
+
+                return [
+                    'id'           => $step->id,
+                    'position'     => (int) $step->position,
+                    'title'        => $lang !== 'fr' ? $this->translator->translate($step->title, $lang) : $step->title,
+                    'subtitle'     => $step->subtitle ? ($lang !== 'fr' ? $this->translator->translate($step->subtitle, $lang) : $step->subtitle) : '',
+                    'icon'         => $step->icon ?: 'file-signature',
+                    'accent_color' => $step->accent_color ?: 'emerald',
+                    'branches'     => array_values($branches),
+                ];
+            })
+            ->values();
+
+        return $this->successResponse(
+            data: $steps,
+            message: 'Étapes du schéma d’inscription récupérées avec succès.'
+        );
+    }
+
+    /**
+     * Vérification publique d'authenticité d'une attestation d'inscription (via QR code ou code).
+     */
+    public function verifyCertificate(string $code): JsonResponse
+    {
+        $cleanCode = strtoupper(trim($code));
+
+        $enrollment = \App\Models\Enrollment::with(['student.profile', 'level', 'city', 'offer'])
+            ->where('certificate_code', $cleanCode)
+            ->first();
+
+        if (! $enrollment) {
+            return $this->errorResponse(
+                message: 'Aucune attestation officielle ne correspond à ce code de vérification.',
+                code: 404
+            );
+        }
+
+        $confirmedPaidCount = \App\Models\Payment::where('enrollment_id', $enrollment->id)
+            ->where('status', 'confirmed')
+            ->count();
+
+        $profile = $enrollment->student?->profile;
+        $studentName = $profile && ($profile->first_name || $profile->last_name)
+            ? trim("{$profile->first_name} {$profile->last_name}")
+            : ($enrollment->student?->email ?? 'Étudiant');
+
+        return $this->successResponse(
+            data: [
+                'valid'            => true,
+                'certificate_code' => $enrollment->certificate_code,
+                'issued_at'        => $enrollment->certificate_issued_at
+                    ? date('d/m/Y', strtotime((string) $enrollment->certificate_issued_at))
+                    : $enrollment->created_at?->format('d/m/Y'),
+                'student_name'     => $studentName,
+                'student_ref'      => 'BE-' . date('Y') . '-' . str_pad((string) $enrollment->student_id, 4, '0', STR_PAD_LEFT),
+                'birth_date'       => $profile?->birth_date ? date('d/m/Y', strtotime((string) $profile->birth_date)) : null,
+                'level_name'       => $enrollment->level?->name ?? 'Portugais Brésilien',
+                'study_mode'       => $enrollment->visa_type === 'visitor_visa'
+                    ? 'Présentiel au Brésil (Visa Visiteur)'
+                    : ($enrollment->offer?->study_mode === 'remote_home_country'
+                        ? '100 % En Ligne'
+                        : 'Présentiel au Brésil (Visa VITEM IV)'),
+                'city'             => $enrollment->city ? "{$enrollment->city->name} ({$enrollment->city->state_code})" : 'Brasília (DF)',
+                'status'           => $enrollment->status,
+                'payment_verified' => $confirmedPaidCount > 0,
+            ],
+            message: 'Attestation officielle authentifiée avec succès.'
         );
     }
 }

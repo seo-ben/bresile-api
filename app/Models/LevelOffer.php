@@ -18,12 +18,17 @@ class LevelOffer extends Model
     protected function casts(): array
     {
         return [
-            'is_available'   => 'boolean',
-            'allow_requests' => 'boolean',
-            'base_price'     => 'decimal:2',
-            'is_active'      => 'boolean',
-            'created_at'     => 'datetime',
-            'updated_at'     => 'datetime',
+            'is_available'                 => 'boolean',
+            'allow_requests'               => 'boolean',
+            'evening_enabled'              => 'boolean',
+            'base_price'                   => 'decimal:2',
+            'evening_base_price'           => 'decimal:2',
+            'evening_installment_1_amount' => 'decimal:2',
+            'evening_installment_2_amount' => 'decimal:2',
+            'evening_installment_3_amount' => 'decimal:2',
+            'is_active'                    => 'boolean',
+            'created_at'                   => 'datetime',
+            'updated_at'                   => 'datetime',
         ];
     }
 
